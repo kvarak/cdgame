@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { GameSetup } from "@/components/game/GameSetup";
 import { GameBoard } from "@/components/game/GameBoard";
+import { GameHistory } from "@/components/game/GameHistory";
+import { AuthButton } from "@/components/auth/AuthButton";
 
 interface Player {
   id: string;
@@ -9,7 +11,7 @@ interface Player {
 }
 
 const Index = () => {
-  const [gameState, setGameState] = useState<'setup' | 'playing'>('setup');
+  const [gameState, setGameState] = useState<'setup' | 'playing' | 'history'>('setup');
   const [players, setPlayers] = useState<Player[]>([]);
 
   const [gameCode, setGameCode] = useState<string>('');
@@ -29,11 +31,30 @@ const Index = () => {
     setGameSessionId('');
   };
 
+  const handleViewHistory = () => {
+    setGameState('history');
+  };
+
+  const handleBackFromHistory = () => {
+    setGameState('setup');
+  };
+
+  if (gameState === 'history') {
+    return <GameHistory onBack={handleBackFromHistory} />;
+  }
+
   if (gameState === 'playing') {
     return <GameBoard players={players} gameCode={gameCode} gameSessionId={gameSessionId} onEndGame={handleEndGame} />;
   }
 
-  return <GameSetup onStartGame={handleStartGame} />;
+  return (
+    <div className="relative">
+      <div className="absolute top-4 right-4 z-10">
+        <AuthButton onViewHistory={handleViewHistory} />
+      </div>
+      <GameSetup onStartGame={handleStartGame} />
+    </div>
+  );
 };
 
 export default Index;

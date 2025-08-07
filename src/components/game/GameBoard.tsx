@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Code, 
   Shield, 
@@ -126,11 +129,14 @@ const CHALLENGE_COLORS = {
 };
 
 export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameBoardProps) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [currentTurn, setCurrentTurn] = useState(0);
   const [pipelineStages, setPipelineStages] = useState(PIPELINE_STAGES);
   const [challenges, setChallenges] = useState(SAMPLE_CHALLENGES);
   const [gameScore, setGameScore] = useState(0);
   const [turnCount, setTurnCount] = useState(1);
+  const [gameStartTime] = useState(new Date());
 
   const currentPlayer = players[currentTurn];
   const totalProgress = pipelineStages.reduce((sum, stage) => sum + stage.progress, 0);
@@ -163,6 +169,42 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
     }
   };
 
+  const saveGameHistory = async () => {
+    if (!user) return;
+
+    try {
+      const gameDuration = Math.round((new Date().getTime() - gameStartTime.getTime()) / (1000 * 60));
+      const completedStages = pipelineStages.filter(stage => stage.progress >= stage.maxProgress).length;
+      
+      const { error } = await supabase
+        .from('game_history')
+        .insert({
+          user_id: user.id,
+          game_session_id: gameSessionId,
+          final_score: gameScore,
+          turns_completed: turnCount,
+          pipeline_stage_reached: completedStages,
+          game_duration_minutes: gameDuration,
+        });
+
+      if (error) {
+        console.error('Error saving game history:', error);
+      } else {
+        toast({
+          title: "Game Saved",
+          description: "Your game has been saved to your history!",
+        });
+      }
+    } catch (error) {
+      console.error('Error saving game history:', error);
+    }
+  };
+
+  const handleEndGame = async () => {
+    await saveGameHistory();
+    onEndGame();
+  };
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="container mx-auto max-w-7xl">
@@ -187,7 +229,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
               </Badge>
             </div>
           </div>
-          <Button variant="outline" onClick={onEndGame}>
+          <Button variant="outline" onClick={handleEndGame}>
             End Game
           </Button>
         </div>

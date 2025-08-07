@@ -289,6 +289,9 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
             <p className="text-muted-foreground text-lg">
               Cooperative multiplayer board game for learning Continuous Delivery and DevOps practices
             </p>
+            <p className="text-muted-foreground text-sm mt-2">
+              💡 Sign in with GitHub to save your game history and track your progress!
+            </p>
           </div>
         </div>
 
