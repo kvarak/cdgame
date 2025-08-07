@@ -13,6 +13,8 @@ import { isRateLimited, sanitizeErrorMessage, secureSessionStorage } from "@/lib
 import { useAuditLogger } from "@/hooks/useAuditLogger";
 import { useGameRoom } from "@/hooks/useGameRoom";
 import { VersionDisplay } from "@/components/ui/version-display";
+import { useAuth } from "@/hooks/useAuth";
+import { AuthButton } from "@/components/auth/AuthButton";
 
 interface Player {
   id: string;
@@ -56,6 +58,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
   const { joinGame } = useGameRoom();
+  const { user } = useAuth();
 
   const assignRandomRole = (role: Player['role']): Player['role'] => {
     if (role === 'Random') {
@@ -246,6 +249,12 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="container mx-auto max-w-4xl">
+        {/* Header with Auth Button */}
+        <div className="flex justify-between items-center mb-4">
+          <div className="flex-1" />
+          <AuthButton />
+        </div>
+
         {/* Hero Section */}
         <div className="relative mb-8 overflow-hidden rounded-xl shadow-glow">
           <img 
@@ -262,7 +271,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
               Cooperative multiplayer board game for learning Continuous Delivery and DevOps practices
             </p>
             <p className="text-muted-foreground text-sm mt-2">
-              💡 Sign in with GitHub to save your game history and track your progress!
+              💡 {user ? 'Signed in with GitHub - your progress is being tracked!' : 'Sign in with GitHub to save your game history and track your progress!'}
             </p>
           </div>
         </div>
@@ -339,19 +348,30 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
 
               {/* Start Game Button */}
               <div className="pt-4">
-                <Button
-                  onClick={handleCreateGame}
-                  disabled={!canCreateGame || isLoading}
-                  className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-                  size="lg"
-                >
-                  <Play className="w-5 h-5 mr-2" />
-                  {isLoading ? 'Creating Game...' : 'Create Game'}
-                </Button>
-                {!canCreateGame && (
-                  <p className="text-muted-foreground text-sm mt-2 text-center">
-                    Please enter your name to create the game
-                  </p>
+                {!user ? (
+                  <div className="text-center space-y-3">
+                    <p className="text-muted-foreground text-sm">
+                      Sign in with GitHub to create and host games
+                    </p>
+                    <AuthButton />
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      onClick={handleCreateGame}
+                      disabled={!canCreateGame || isLoading}
+                      className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
+                      size="lg"
+                    >
+                      <Play className="w-5 h-5 mr-2" />
+                      {isLoading ? 'Creating Game...' : 'Create Game'}
+                    </Button>
+                    {!canCreateGame && (
+                      <p className="text-muted-foreground text-sm mt-2 text-center">
+                        Please enter your name to create the game
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </CardContent>
