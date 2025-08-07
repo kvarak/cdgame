@@ -8,6 +8,7 @@ import { Plus, Minus, Users, Play, GamepadIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/devops-hero.jpg";
+import { validatePlayerName, validateGameCode } from "@/lib/validation";
 
 interface Player {
   id: string;
@@ -106,6 +107,22 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
   const handleCreateGame = async () => {
     if (!canCreateGame) return;
     
+    // Validate all player names
+    const invalidPlayer = players.find((player, index) => {
+      const validation = validatePlayerName(player.name);
+      if (!validation.isValid) {
+        toast({
+          title: "Invalid Player Name",
+          description: `Player ${index + 1}: ${validation.error}`,
+          variant: "destructive",
+        });
+        return true;
+      }
+      return false;
+    });
+    
+    if (invalidPlayer) return;
+    
     setIsLoading(true);
     try {
       const gameCode = generateGameCode();
@@ -160,13 +177,24 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
   const handleJoinGame = async () => {
     if (!canJoinGame) return;
     
+    // Validate game code
+    const validation = validateGameCode(joinCode);
+    if (!validation.isValid) {
+      toast({
+        title: "Invalid Game Code",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
     try {
       // Find game session
       const { data: gameSession, error: sessionError } = await supabase
         .from('game_sessions')
         .select('*')
-        .eq('game_code', joinCode.toUpperCase())
+        .eq('game_code', validation.sanitized)
         .eq('status', 'waiting')
         .single();
 
@@ -190,10 +218,10 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
 
       toast({
         title: "Joined Game!",
-        description: `Connected to game ${joinCode}`,
+        description: `Connected to game ${validation.sanitized}`,
       });
 
-      onStartGame(gamePlayers, joinCode.toUpperCase(), gameSession.id);
+      onStartGame(gamePlayers, validation.sanitized, gameSession.id);
     } catch (error) {
       console.error('Error joining game:', error);
       toast({
