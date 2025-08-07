@@ -113,11 +113,14 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
     }
     
     setIsLoading(true);
+    console.log('Creating game with user:', user?.id, 'hostName:', hostName);
     try {
       const gameCode = await generateGameCode();
+      console.log('Generated game code:', gameCode);
       const finalHostRole = assignRandomRole(hostRole);
       
       // Create game session
+      console.log('Creating game session...');
       const { data: gameSession, error: sessionError } = await supabase
         .from('game_sessions')
         .insert({
@@ -128,9 +131,14 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         .select()
         .single();
 
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw sessionError;
+      }
+      console.log('Game session created:', gameSession);
 
       // Create host player record
+      console.log('Creating host player record...');
       const { error: hostError } = await supabase
         .from('game_players')
         .insert({
@@ -142,7 +150,11 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
           status: 'joined'
         });
 
-      if (hostError) throw hostError;
+      if (hostError) {
+        console.error('Host error:', hostError);
+        throw hostError;
+      }
+      console.log('Host player record created successfully');
 
       // Log game creation event
       await logGameEvent('create', gameSession.id, {
