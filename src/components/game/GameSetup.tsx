@@ -126,8 +126,8 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
 
       console.log('Step 7: Creating game session directly...');
       
-      // Create game session directly instead of using RPC function
-      const { data: gameSession, error: sessionError } = await supabase
+      // Create game session directly with timeout
+      const insertPromise = supabase
         .from('game_sessions')
         .insert({
           game_code: gameCode,
@@ -136,6 +136,12 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         })
         .select()
         .single();
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database insert timed out after 8 seconds')), 8000)
+      );
+
+      const { data: gameSession, error: sessionError } = await Promise.race([insertPromise, timeoutPromise]) as any;
 
       if (sessionError) {
         console.error('Step 7 FAILED - Session creation error:', sessionError);
