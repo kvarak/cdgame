@@ -11,19 +11,20 @@ import heroImage from "@/assets/devops-hero.jpg";
 import { validatePlayerName, validateGameCode } from "@/lib/validation";
 import { isRateLimited, sanitizeErrorMessage, secureSessionStorage } from "@/lib/security";
 import { useAuditLogger } from "@/hooks/useAuditLogger";
+import { useGameRoom } from "@/hooks/useGameRoom";
 
 interface Player {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
+  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer';
 }
 
 interface GameSetupProps {
   onStartGame: (players: Player[], gameCode: string, gameSessionId: string) => void;
+  onEnterWaitingRoom: (gameSessionId: string, isHost: boolean, playerName: string) => void;
 }
 
 const AVAILABLE_ROLES = [
-  'Random',
   'Developer',
   'QA Engineer', 
   'DevOps Engineer',
@@ -33,7 +34,6 @@ const AVAILABLE_ROLES = [
 ] as const;
 
 const ROLE_COLORS = {
-  'Random': 'bg-gradient-primary text-white',
   'Developer': 'bg-pipeline-dev text-pipeline-dev-foreground',
   'QA Engineer': 'bg-pipeline-test text-pipeline-test-foreground',
   'DevOps Engineer': 'bg-pipeline-deploy text-pipeline-deploy-foreground',
@@ -42,58 +42,17 @@ const ROLE_COLORS = {
   'Site Reliability Engineer': 'bg-pipeline-monitor text-pipeline-monitor-foreground'
 };
 
-export const GameSetup = ({ onStartGame }: GameSetupProps) => {
+export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) => {
   const [gameMode, setGameMode] = useState<'create' | 'join'>('create');
-  const [playerCount, setPlayerCount] = useState(2);
-  const [players, setPlayers] = useState<Player[]>([
-    { id: '1', name: '', role: 'Random' },
-    { id: '2', name: '', role: 'Random' }
-  ]);
   const [hostName, setHostName] = useState('');
+  const [hostRole, setHostRole] = useState<Player['role']>('Developer');
   const [joinCode, setJoinCode] = useState('');
+  const [joinPlayerName, setJoinPlayerName] = useState('');
+  const [joinPlayerRole, setJoinPlayerRole] = useState<Player['role']>('Developer');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
-
-  const updatePlayerCount = (newCount: number) => {
-    if (newCount < 1 || newCount > 6) return;
-    
-    const newPlayers = [...players];
-    
-    if (newCount > playerCount) {
-      // Add new players
-      for (let i = playerCount; i < newCount; i++) {
-        newPlayers.push({
-          id: String(i + 1),
-          name: '',
-          role: 'Random'
-        });
-      }
-    } else {
-      // Remove players
-      newPlayers.splice(newCount);
-    }
-    
-    setPlayerCount(newCount);
-    setPlayers(newPlayers);
-  };
-
-  const updatePlayer = (index: number, field: keyof Player, value: string) => {
-    const newPlayers = [...players];
-    newPlayers[index] = { ...newPlayers[index], [field]: value };
-    setPlayers(newPlayers);
-  };
-
-  const assignRandomRoles = (players: Player[]) => {
-    const nonRandomRoles = AVAILABLE_ROLES.slice(1); // Exclude 'Random'
-    return players.map(player => {
-      if (player.role === 'Random') {
-        const randomRole = nonRandomRoles[Math.floor(Math.random() * nonRandomRoles.length)];
-        return { ...player, role: randomRole };
-      }
-      return player;
-    });
-  };
+  const { joinGame } = useGameRoom();
 
   const generateGameCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -104,8 +63,8 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
     return result;
   };
 
-  const canCreateGame = hostName.trim() !== '' && players.every(player => player.name.trim() !== '');
-  const canJoinGame = joinCode.trim() !== '';
+  const canCreateGame = hostName.trim() !== '';
+  const canJoinGame = joinCode.trim() !== '' && joinPlayerName.trim() !== '';
 
   const handleCreateGame = async () => {
     if (!canCreateGame) return;
@@ -120,26 +79,20 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
       return;
     }
     
-    // Validate all player names
-    const invalidPlayer = players.find((player, index) => {
-      const validation = validatePlayerName(player.name);
-      if (!validation.isValid) {
-        toast({
-          title: "Invalid Player Name",
-          description: `Player ${index + 1}: ${validation.error}`,
-          variant: "destructive",
-        });
-        return true;
-      }
-      return false;
-    });
-    
-    if (invalidPlayer) return;
+    // Validate host name
+    const validation = validatePlayerName(hostName);
+    if (!validation.isValid) {
+      toast({
+        title: "Invalid Host Name",
+        description: validation.error,
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsLoading(true);
     try {
       const gameCode = generateGameCode();
-      const playersWithRoles = assignRandomRoles(players);
       
       // Create game session
       const { data: gameSession, error: sessionError } = await supabase
@@ -154,32 +107,30 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
 
       if (sessionError) throw sessionError;
 
-      // Create player records
-      const playerRecords = playersWithRoles.map((player, index) => ({
-        game_session_id: gameSession.id,
-        player_name: player.name,
-        player_role: player.role,
-        player_order: index,
-        is_host: index === 0
-      }));
-
-      const { error: playersError } = await supabase
+      // Create host player record
+      const { error: hostError } = await supabase
         .from('game_players')
-        .insert(playerRecords);
+        .insert({
+          game_session_id: gameSession.id,
+          player_name: hostName,
+          player_role: hostRole,
+          player_order: 0,
+          is_host: true,
+          status: 'joined'
+        });
 
-      if (playersError) throw playersError;
-
-      toast({
-        title: "Game Created!",
-        description: `Game code: ${gameCode}`,
-      });
+      if (hostError) throw hostError;
 
       // Log game creation event
       await logGameEvent('create', gameSession.id, {
         gameCode,
         hostName,
-        playerCount: playersWithRoles.length,
-        players: playersWithRoles.map(p => ({ name: p.name, role: p.role }))
+        hostRole
+      });
+
+      toast({
+        title: "Game Created!",
+        description: `Game room created with code: ${gameCode}`,
       });
 
       // Store game session securely
@@ -189,12 +140,13 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
         timestamp: Date.now()
       });
       
-      onStartGame(playersWithRoles, gameCode, gameSession.id);
+      // Enter waiting room as host
+      onEnterWaitingRoom(gameSession.id, true, hostName);
     } catch (error) {
       console.error('Error creating game:', error);
       const sanitizedError = sanitizeErrorMessage(error);
       toast({
-        title: "Error",
+        title: "Error Creating Game",
         description: sanitizedError,
         variant: "destructive",
       });
@@ -216,12 +168,22 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
       return;
     }
     
-    // Validate game code
-    const validation = validateGameCode(joinCode);
-    if (!validation.isValid) {
+    // Validate game code and player name
+    const codeValidation = validateGameCode(joinCode);
+    if (!codeValidation.isValid) {
       toast({
         title: "Invalid Game Code",
-        description: validation.error,
+        description: codeValidation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const nameValidation = validatePlayerName(joinPlayerName);
+    if (!nameValidation.isValid) {
+      toast({
+        title: "Invalid Player Name",
+        description: nameValidation.error,
         variant: "destructive",
       });
       return;
@@ -229,57 +191,28 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
     
     setIsLoading(true);
     try {
-      // Find game session
-      const { data: gameSession, error: sessionError } = await supabase
-        .from('game_sessions')
-        .select('*')
-        .eq('game_code', validation.sanitized)
-        .eq('status', 'waiting')
-        .single();
-
-      if (sessionError) throw new Error('Game not found or already started');
-
-      // Get existing players
-      const { data: existingPlayers, error: playersError } = await supabase
-        .from('game_players')
-        .select('*')
-        .eq('game_session_id', gameSession.id)
-        .order('player_order');
-
-      if (playersError) throw playersError;
-
-      // Convert to our Player format
-      const gamePlayers: Player[] = existingPlayers.map(p => ({
-        id: p.id,
-        name: p.player_name,
-        role: p.player_role as Player['role']
-      }));
-
-      // Log game join event
-      await logGameEvent('join', gameSession.id, {
-        gameCode: validation.sanitized,
-        playerCount: gamePlayers.length,
-        hostName: gameSession.host_name
-      });
+      // Join the game using the hook
+      const result = await joinGame(codeValidation.sanitized, joinPlayerName, joinPlayerRole);
 
       toast({
         title: "Joined Game!",
-        description: `Connected to game ${validation.sanitized}`,
+        description: `Connected to game ${codeValidation.sanitized}`,
       });
 
       // Store game session securely
       secureSessionStorage.set('current_game', {
-        gameCode: validation.sanitized,
-        sessionId: gameSession.id,
+        gameCode: codeValidation.sanitized,
+        sessionId: result.session_id,
         timestamp: Date.now()
       });
       
-      onStartGame(gamePlayers, validation.sanitized, gameSession.id);
+      // Enter waiting room as player
+      onEnterWaitingRoom(result.session_id, false, joinPlayerName);
     } catch (error) {
       console.error('Error joining game:', error);
       const sanitizedError = sanitizeErrorMessage(error);
       toast({
-        title: "Error",
+        title: "Error Joining Game",
         description: sanitizedError,
         variant: "destructive",
       });
@@ -358,76 +291,28 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
                 />
               </div>
 
-              {/* Player Count */}
+              {/* Host Role */}
               <div className="space-y-2">
-                <Label htmlFor="player-count" className="text-base font-medium">
-                  Number of Players
+                <Label htmlFor="host-role" className="text-base font-medium">
+                  Your Role
                 </Label>
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => updatePlayerCount(playerCount - 1)}
-                    disabled={playerCount <= 1}
-                  >
-                    <Minus className="w-4 h-4" />
-                  </Button>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-bold text-primary">{playerCount}</span>
-                    <span className="text-muted-foreground">players</span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => updatePlayerCount(playerCount + 1)}
-                    disabled={playerCount >= 6}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
+                <select
+                  id="host-role"
+                  value={hostRole}
+                  onChange={(e) => setHostRole(e.target.value as Player['role'])}
+                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {AVAILABLE_ROLES.map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
               </div>
 
-              {/* Player Configuration */}
-              <div className="space-y-4">
-                <Label className="text-base font-medium">Team Members</Label>
-                <div className="grid gap-4">
-                  {players.map((player, index) => (
-                    <Card key={player.id} className="p-4 border-border/50">
-                      <div className="flex items-center gap-4">
-                        <div className="flex-1">
-                          <Label htmlFor={`player-${index}-name`} className="text-sm">
-                            Player {index + 1} Name
-                          </Label>
-                          <Input
-                            id={`player-${index}-name`}
-                            placeholder="Enter player name"
-                            value={player.name}
-                            onChange={(e) => updatePlayer(index, 'name', e.target.value)}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <Label htmlFor={`player-${index}-role`} className="text-sm">
-                            Role
-                          </Label>
-                          <select
-                            id={`player-${index}-role`}
-                            value={player.role}
-                            onChange={(e) => updatePlayer(index, 'role', e.target.value)}
-                            className="mt-1 w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                          >
-                            {AVAILABLE_ROLES.map(role => (
-                              <option key={role} value={role}>{role}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <Badge className={ROLE_COLORS[player.role]}>
-                          {player.role}
-                        </Badge>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
+              {/* Game Info */}
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  <strong>Note:</strong> After creating the game, you'll enter a waiting room where other players can join using the game code. You can start the game when ready.
+                </p>
               </div>
 
               {/* Start Game Button */}
@@ -443,7 +328,7 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
                 </Button>
                 {!canCreateGame && (
                   <p className="text-muted-foreground text-sm mt-2 text-center">
-                    Please enter your name and names for all players
+                    Please enter your name to create the game
                   </p>
                 )}
               </div>
@@ -474,6 +359,34 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
                   maxLength={6}
                   className="text-center text-2xl font-mono tracking-wider"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="join-player-name" className="text-base font-medium">
+                  Your Name
+                </Label>
+                <Input
+                  id="join-player-name"
+                  placeholder="Enter your name"
+                  value={joinPlayerName}
+                  onChange={(e) => setJoinPlayerName(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="join-player-role" className="text-base font-medium">
+                  Your Role
+                </Label>
+                <select
+                  id="join-player-role"
+                  value={joinPlayerRole}
+                  onChange={(e) => setJoinPlayerRole(e.target.value as Player['role'])}
+                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {AVAILABLE_ROLES.map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
               </div>
 
               <Button

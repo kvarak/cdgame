@@ -109,9 +109,12 @@ export type Database = {
           game_session_id: string
           id: string
           is_host: boolean
+          joined_at: string | null
+          last_seen: string | null
           player_name: string
           player_order: number
           player_role: string
+          status: string | null
           updated_at: string
         }
         Insert: {
@@ -119,9 +122,12 @@ export type Database = {
           game_session_id: string
           id?: string
           is_host?: boolean
+          joined_at?: string | null
+          last_seen?: string | null
           player_name: string
           player_order: number
           player_role: string
+          status?: string | null
           updated_at?: string
         }
         Update: {
@@ -129,9 +135,12 @@ export type Database = {
           game_session_id?: string
           id?: string
           is_host?: boolean
+          joined_at?: string | null
+          last_seen?: string | null
           player_name?: string
           player_order?: number
           player_role?: string
+          status?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -146,11 +155,13 @@ export type Database = {
       }
       game_sessions: {
         Row: {
+          allow_spectators: boolean | null
           created_at: string
           current_turn: number
           game_code: string
           host_name: string
           id: string
+          max_players: number | null
           pipeline_stage: number
           score: number
           status: string
@@ -158,11 +169,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allow_spectators?: boolean | null
           created_at?: string
           current_turn?: number
           game_code: string
           host_name: string
           id?: string
+          max_players?: number | null
           pipeline_stage?: number
           score?: number
           status?: string
@@ -170,11 +183,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allow_spectators?: boolean | null
           created_at?: string
           current_turn?: number
           game_code?: string
           host_name?: string
           id?: string
+          max_players?: number | null
           pipeline_stage?: number
           score?: number
           status?: string
@@ -222,6 +237,19 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      join_game_session: {
+        Args: {
+          p_game_code: string
+          p_player_name: string
+          p_player_role?: string
+        }
+        Returns: {
+          session_id: string
+          player_id: string
+          host_name: string
+          current_players: number
+        }[]
+      }
       log_audit_event: {
         Args: {
           p_event_type: string
@@ -232,6 +260,14 @@ export type Database = {
           p_user_id?: string
         }
         Returns: string
+      }
+      update_player_role: {
+        Args: {
+          p_session_id: string
+          p_player_name: string
+          p_new_role: string
+        }
+        Returns: boolean
       }
       validate_game_access: {
         Args: { session_id: string; player_name: string }

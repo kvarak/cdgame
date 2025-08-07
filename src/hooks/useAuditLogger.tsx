@@ -35,7 +35,7 @@ export const useAuditLogger = () => {
   }, [user?.id]);
 
   const logGameEvent = useCallback(async (
-    action: 'create' | 'join' | 'start' | 'end',
+    action: 'create' | 'join' | 'start' | 'end' | 'player_join' | 'role_change',
     gameSessionId?: string,
     metadata?: Record<string, any>
   ) => {
