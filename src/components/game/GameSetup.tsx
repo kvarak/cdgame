@@ -130,21 +130,24 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       let gameSession: any;
       
       try {
-        // Test Supabase connectivity first
-        console.log('Step 7.2: Testing Supabase connectivity...');
-        const { data: testData, error: testError } = await Promise.race([
-          supabase.from('game_sessions').select('count').limit(1),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Connectivity test timed out')), 3000)
-          )
-        ]) as any;
+        // Simplest possible test - just check if we can reach Supabase
+        console.log('Step 7.2: Testing basic Supabase access...');
         
-        if (testError) {
-          console.error('Step 7.2 FAILED - Connectivity test failed:', testError);
-          throw new Error(`Database connectivity issue: ${testError.message}`);
+        // Try the simplest possible query without timeout first
+        console.log('Step 7.3: Attempting simple select...');
+        const testResult = await supabase
+          .from('game_sessions')
+          .select('id')
+          .limit(1);
+          
+        console.log('Step 7.4: Test result:', testResult);
+        
+        if (testResult.error) {
+          console.error('Simple select failed:', testResult.error);
+          throw new Error(`Database access failed: ${testResult.error.message}`);
         }
         
-        console.log('Step 7.2 SUCCESS - Supabase is connected');
+        console.log('Step 7.5: Database connection verified, proceeding with insert...');
         
         // Now try the actual insert with timeout
         console.log('Step 7.3: Creating game session...');
