@@ -130,9 +130,22 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       let gameSession: any;
       
       try {
-        // Use Supabase client instead of direct HTTP
-        console.log('Step 7.2: Creating game session via Supabase client...');
+        // COMPREHENSIVE DEBUG: Test all aspects before game creation
+        console.log('Step 7.2: Testing Supabase connectivity...');
         
+        // Test 1: Check auth state
+        const { data: authUser, error: authError } = await supabase.auth.getUser();
+        console.log('Auth test:', { user: authUser?.user?.id, error: authError });
+        
+        // Test 2: Test simple SELECT
+        const { data: testSelect, error: selectError } = await supabase
+          .from('game_sessions')
+          .select('id')
+          .limit(1);
+        console.log('SELECT test:', { data: testSelect, error: selectError });
+        
+        // Test 3: Now try INSERT
+        console.log('Step 7.3: Creating game session via Supabase client...');
         const { data: gameSessionData, error: sessionError } = await supabase
           .from('game_sessions')
           .insert({
@@ -142,6 +155,8 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
           })
           .select()
           .single();
+        
+        console.log('INSERT result:', { data: gameSessionData, error: sessionError });
         
         if (sessionError) {
           console.error('Create game session failed:', sessionError);
