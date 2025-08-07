@@ -119,9 +119,10 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       console.log('Generated game code:', gameCode);
       const finalHostRole = assignRandomRole(hostRole);
       
-      // Create game session
+      // Create game session with timeout
       console.log('Creating game session...');
-      const { data: gameSession, error: sessionError } = await supabase
+      
+      const gameSessionPromise = supabase
         .from('game_sessions')
         .insert({
           game_code: gameCode,
@@ -131,15 +132,26 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         .select()
         .single();
 
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database operation timed out')), 10000)
+      );
+
+      const { data: gameSession, error: sessionError } = await Promise.race([
+        gameSessionPromise,
+        timeoutPromise
+      ]) as any;
+
       if (sessionError) {
         console.error('Session error:', sessionError);
         throw sessionError;
       }
       console.log('Game session created:', gameSession);
 
-      // Create host player record
+      // Create host player record with timeout
       console.log('Creating host player record...');
-      const { error: hostError } = await supabase
+      
+      const hostPlayerPromise = supabase
         .from('game_players')
         .insert({
           game_session_id: gameSession.id,
@@ -149,6 +161,15 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
           is_host: true,
           status: 'joined'
         });
+
+      const hostTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Host player creation timed out')), 10000)
+      );
+
+      const { error: hostError } = await Promise.race([
+        hostPlayerPromise,
+        hostTimeoutPromise
+      ]) as any;
 
       if (hostError) {
         console.error('Host error:', hostError);
