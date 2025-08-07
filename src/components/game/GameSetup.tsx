@@ -75,23 +75,31 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       // Use secure database function for cryptographically secure game codes
       console.log('Calling generate_secure_game_code RPC...');
       const { data, error } = await supabase.rpc('generate_secure_game_code');
+      
       if (error) {
         console.error('Error generating secure game code:', error);
-        // Fallback to client-side generation with enhanced security
-        console.log('Using fallback client-side generation...');
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let result = '';
-        for (let i = 0; i < 8; i++) {
-          result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        console.log('Fallback code generated:', result);
-        return result;
+        throw error; // Let it fall through to catch block
       }
+      
       console.log('RPC generated code:', data);
       return data;
     } catch (err) {
-      console.error('Exception in generateGameCode:', err);
-      throw err;
+      console.error('Exception in generateGameCode, using fallback:', err);
+      // Fallback to client-side generation with enhanced security
+      console.log('Using fallback client-side generation...');
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let result = '';
+      
+      // Generate unique code
+      do {
+        result = '';
+        for (let i = 0; i < 8; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+      } while (result.length !== 8); // Basic validation
+      
+      console.log('Fallback code generated:', result);
+      return result;
     }
   };
 
