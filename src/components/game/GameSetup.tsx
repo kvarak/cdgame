@@ -118,71 +118,51 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       console.log('Generated game code:', gameCode);
       const finalHostRole = assignRandomRole(hostRole);
 
-      console.log('Creating game session using direct API...');
+      console.log('Creating game session with Supabase client...');
       
-      // Get auth session for API calls
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('No valid session found');
-      }
-
-      const SUPABASE_URL = "https://ufzzbcvcpxituioqhgfy.supabase.co";
-      const headers = {
-        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8',
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      };
-
-      // Create game session via direct API call
-      const gameSessionResponse = await fetch(`${SUPABASE_URL}/rest/v1/game_sessions`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
+      // Create game session using Supabase client
+      const { data: gameSession, error: sessionError } = await supabase
+        .from('game_sessions')
+        .insert({
           game_code: gameCode,
           host_name: hostName,
           status: 'waiting'
         })
-      });
+        .select()
+        .single();
 
-      if (!gameSessionResponse.ok) {
-        const error = await gameSessionResponse.text();
-        console.error('Game session creation failed:', error);
-        throw new Error(`Failed to create game session: ${gameSessionResponse.status}`);
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw sessionError;
       }
+      
+      console.log('Game session created:', gameSession);
 
-      const [gameSession] = await gameSessionResponse.json();
-      console.log('Game session created via API:', gameSession);
-
-      // Create host player record via direct API call
-      console.log('Creating host player record via API...');
-      const hostPlayerResponse = await fetch(`${SUPABASE_URL}/rest/v1/game_players`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
+      // Create host player record
+      console.log('Creating host player record...');
+      const { error: hostError } = await supabase
+        .from('game_players')
+        .insert({
           game_session_id: gameSession.id,
           player_name: hostName,
           player_role: finalHostRole,
           player_order: 0,
           is_host: true,
           status: 'joined'
-        })
-      });
+        });
 
-      if (!hostPlayerResponse.ok) {
-        const error = await hostPlayerResponse.text();
-        console.error('Host player creation failed:', error);
-        throw new Error(`Failed to create host player: ${hostPlayerResponse.status}`);
+      if (hostError) {
+        console.error('Host error:', hostError);
+        throw hostError;
       }
+      console.log('Host player record created successfully');
 
-      console.log('Host player record created via API');
-
-      // Log game creation event (keep this async, don't wait for it)
-      logGameEvent('create', gameSession.id, {
+      // Log game creation event
+      await logGameEvent('create', gameSession.id, {
         gameCode,
         hostName,
         hostRole: finalHostRole
-      }).catch(err => console.error('Logging failed:', err));
+      });
 
       toast({
         title: "Game Created!",
