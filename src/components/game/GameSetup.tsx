@@ -125,9 +125,11 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       console.log('Step 6: Final host role:', finalHostRole);
 
       console.log('Step 7: Creating game session and adding host player...');
+      console.log('Step 7.1: About to call supabase.from(game_sessions)...');
       
       // Single transaction approach - create session and add host in one go
-      const { data: gameSession, error: sessionError } = await supabase
+      console.log('Step 7.2: Creating insert query...');
+      const insertQuery = supabase
         .from('game_sessions')
         .insert({
           game_code: gameCode,
@@ -136,6 +138,10 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         })
         .select()
         .single();
+      
+      console.log('Step 7.3: About to await insert query...');
+      const { data: gameSession, error: sessionError } = await insertQuery;
+      console.log('Step 7.4: Insert query completed!');
 
       if (sessionError) {
         console.error('Failed to create game session:', sessionError);
