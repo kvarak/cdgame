@@ -130,54 +130,69 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       let gameSession: any;
       
       try {
-        // Simplest possible test - just check if we can reach Supabase
-        console.log('Step 7.2: Testing basic Supabase access...');
+        // Let's try direct HTTP approach instead of Supabase client
+        console.log('Step 7.2: Testing direct HTTP to Supabase...');
         
-        // Try the simplest possible query without timeout first
-        console.log('Step 7.3: Attempting simple select...');
-        const testResult = await supabase
-          .from('game_sessions')
-          .select('id')
-          .limit(1);
-          
-        console.log('Step 7.4: Test result:', testResult);
+        const response = await fetch('https://ufzzbcvcpxituioqhgfy.supabase.co/rest/v1/game_sessions?select=id&limit=1', {
+          method: 'GET',
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8`,
+            'Content-Type': 'application/json'
+          }
+        });
         
-        if (testResult.error) {
-          console.error('Simple select failed:', testResult.error);
-          throw new Error(`Database access failed: ${testResult.error.message}`);
+        console.log('Step 7.3: Direct HTTP response:', response.status, response.statusText);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
         }
         
-        console.log('Step 7.5: Database connection verified, proceeding with insert...');
+        const data = await response.json();
+        console.log('Step 7.4: Direct HTTP data:', data);
         
-        // Now try the actual insert with timeout
-        console.log('Step 7.3: Creating game session...');
-        const { data: sessionData, error: sessionError } = await Promise.race([
-          supabase
-            .from('game_sessions')
-            .insert({
-              game_code: gameCode,
-              host_name: hostName,
-              status: 'waiting'
-            })
-            .select()
-            .single(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Game session insert timed out after 5 seconds')), 5000)
-          )
-        ]) as any;
-
-        if (sessionError) {
-          console.error('Failed to create game session:', sessionError);
-          throw new Error(`Failed to create game session: ${sessionError.message}`);
+        console.log('Step 7.5: Direct HTTP works! Now creating game via HTTP...');
+        
+        // Create game session via direct HTTP POST
+        const createResponse = await fetch('https://ufzzbcvcpxituioqhgfy.supabase.co/rest/v1/game_sessions', {
+          method: 'POST',
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            game_code: gameCode,
+            host_name: hostName,
+            status: 'waiting'
+          })
+        });
+        
+        console.log('Step 7.6: Create game response:', createResponse.status);
+        
+        if (!createResponse.ok) {
+          const errorText = await createResponse.text();
+          console.error('Create game failed:', errorText);
+          throw new Error(`Failed to create game: ${createResponse.status} ${errorText}`);
         }
-
-        gameSession = sessionData;
-        console.log('Step 8: Game session created, adding host player...');
         
-        // Add the host player directly
-        const { data: hostPlayer, error: playerError } = await supabase
-          .from('game_players')
-          .insert({
+        const gameSessionData = await createResponse.json();
+        console.log('Step 7.7: Game session created:', gameSessionData);
+        
+        gameSession = gameSessionData[0]; // Supabase returns array
+        console.log('Step 8: Game session ID:', gameSession.id);
+        
+        // Add host player via HTTP
+        const playerResponse = await fetch('https://ufzzbcvcpxituioqhgfy.supabase.co/rest/v1/game_players', {
+          method: 'POST',
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8',
+            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
             game_session_id: gameSession.id,
             player_name: hostName,
             player_role: finalHostRole,
@@ -185,13 +200,16 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
             is_host: true,
             status: 'joined'
           })
-          .select()
-          .single();
-
-        if (playerError) {
-          console.error('Failed to add host player:', playerError);
-          throw new Error(`Failed to add host player: ${playerError.message}`);
+        });
+        
+        if (!playerResponse.ok) {
+          const errorText = await playerResponse.text();
+          console.error('Add player failed:', errorText);
+          throw new Error(`Failed to add host player: ${playerResponse.status} ${errorText}`);
         }
+        
+        console.log('Step 9: Host player added successfully');
+        
       } catch (dbError) {
         console.error('Database operation failed:', dbError);
         throw dbError;
