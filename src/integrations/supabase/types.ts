@@ -99,7 +99,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_old_games: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      validate_game_access: {
+        Args: { session_id: string; player_name: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
