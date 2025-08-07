@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          created_at: string
+          event_action: string
+          event_type: string
+          id: string
+          ip_address: unknown | null
+          metadata: Json | null
+          resource_id: string | null
+          resource_type: string | null
+          session_id: string | null
+          timestamp: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_action: string
+          event_type: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          resource_id?: string | null
+          resource_type?: string | null
+          session_id?: string | null
+          timestamp?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_action?: string
+          event_type?: string
+          id?: string
+          ip_address?: unknown | null
+          metadata?: Json | null
+          resource_id?: string | null
+          resource_type?: string | null
+          session_id?: string | null
+          timestamp?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       game_history: {
         Row: {
           completed_at: string
@@ -176,6 +221,17 @@ export type Database = {
       cleanup_old_games: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      log_audit_event: {
+        Args: {
+          p_event_type: string
+          p_event_action: string
+          p_resource_type?: string
+          p_resource_id?: string
+          p_metadata?: Json
+          p_user_id?: string
+        }
+        Returns: string
       }
       validate_game_access: {
         Args: { session_id: string; player_name: string }

@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuditLogger } from "@/hooks/useAuditLogger";
 import { 
   Code, 
   Shield, 
@@ -131,12 +132,23 @@ const CHALLENGE_COLORS = {
 export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameBoardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { logGameEvent } = useAuditLogger();
   const [currentTurn, setCurrentTurn] = useState(0);
   const [pipelineStages, setPipelineStages] = useState(PIPELINE_STAGES);
   const [challenges, setChallenges] = useState(SAMPLE_CHALLENGES);
   const [gameScore, setGameScore] = useState(0);
   const [turnCount, setTurnCount] = useState(1);
   const [gameStartTime] = useState(new Date());
+
+  // Log game start event when component mounts
+  useEffect(() => {
+    logGameEvent('start', gameSessionId, {
+      gameCode,
+      totalPlayers: players.length,
+      playerRoles: players.map(p => p.role),
+      startTime: gameStartTime.toISOString()
+    });
+  }, []);
 
   const currentPlayer = players[currentTurn];
   const totalProgress = pipelineStages.reduce((sum, stage) => sum + stage.progress, 0);
@@ -201,6 +213,16 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
   };
 
   const handleEndGame = async () => {
+    // Log game end event
+    await logGameEvent('end', gameSessionId, {
+      gameCode,
+      finalScore: gameScore,
+      turnsCompleted: turnCount,
+      gameDurationMinutes: Math.round((new Date().getTime() - gameStartTime.getTime()) / (1000 * 60)),
+      totalPlayers: players.length,
+      pipelineProgress: pipelineStages.reduce((sum, stage) => sum + stage.progress, 0)
+    });
+    
     await saveGameHistory();
     onEndGame();
   };

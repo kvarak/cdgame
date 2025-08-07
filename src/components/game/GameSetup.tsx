@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/devops-hero.jpg";
 import { validatePlayerName, validateGameCode } from "@/lib/validation";
 import { isRateLimited, sanitizeErrorMessage, secureSessionStorage } from "@/lib/security";
+import { useAuditLogger } from "@/hooks/useAuditLogger";
 
 interface Player {
   id: string;
@@ -52,6 +53,7 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
   const [joinCode, setJoinCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { logGameEvent } = useAuditLogger();
 
   const updatePlayerCount = (newCount: number) => {
     if (newCount < 1 || newCount > 6) return;
@@ -172,6 +174,14 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
         description: `Game code: ${gameCode}`,
       });
 
+      // Log game creation event
+      await logGameEvent('create', gameSession.id, {
+        gameCode,
+        hostName,
+        playerCount: playersWithRoles.length,
+        players: playersWithRoles.map(p => ({ name: p.name, role: p.role }))
+      });
+
       // Store game session securely
       secureSessionStorage.set('current_game', {
         gameCode,
@@ -244,6 +254,13 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
         name: p.player_name,
         role: p.player_role as Player['role']
       }));
+
+      // Log game join event
+      await logGameEvent('join', gameSession.id, {
+        gameCode: validation.sanitized,
+        playerCount: gamePlayers.length,
+        hostName: gameSession.host_name
+      });
 
       toast({
         title: "Joined Game!",
