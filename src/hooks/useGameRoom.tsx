@@ -88,9 +88,11 @@ export const useGameRoom = (gameSessionId?: string) => {
 
     fetchGameState();
 
-    // Subscribe to player changes
+    console.log('Setting up real-time subscriptions for game:', gameSessionId);
+
+    // Subscribe to player changes with better event handling
     const playersChannel = supabase
-      .channel(`game_players:${gameSessionId}`)
+      .channel(`game_players_${gameSessionId}`)
       .on(
         'postgres_changes',
         {
@@ -99,15 +101,18 @@ export const useGameRoom = (gameSessionId?: string) => {
           table: 'game_players',
           filter: `game_session_id=eq.${gameSessionId}`
         },
-        () => {
+        (payload) => {
+          console.log('Player change detected:', payload);
           fetchGameState(); // Refetch on any player changes
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Players channel subscription status:', status);
+      });
 
     // Subscribe to session changes
     const sessionChannel = supabase
-      .channel(`game_sessions:${gameSessionId}`)
+      .channel(`game_sessions_${gameSessionId}`)
       .on(
         'postgres_changes',
         {
@@ -116,13 +121,17 @@ export const useGameRoom = (gameSessionId?: string) => {
           table: 'game_sessions',
           filter: `id=eq.${gameSessionId}`
         },
-        () => {
+        (payload) => {
+          console.log('Session change detected:', payload);
           fetchGameState(); // Refetch on session changes
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Session channel subscription status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up real-time subscriptions');
       supabase.removeChannel(playersChannel);
       supabase.removeChannel(sessionChannel);
     };
