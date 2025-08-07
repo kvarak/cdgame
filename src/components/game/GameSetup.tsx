@@ -16,7 +16,7 @@ import { useGameRoom } from "@/hooks/useGameRoom";
 interface Player {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer';
+  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
 }
 
 interface GameSetupProps {
@@ -25,6 +25,7 @@ interface GameSetupProps {
 }
 
 const AVAILABLE_ROLES = [
+  'Random',
   'Developer',
   'QA Engineer', 
   'DevOps Engineer',
@@ -34,6 +35,7 @@ const AVAILABLE_ROLES = [
 ] as const;
 
 const ROLE_COLORS = {
+  'Random': 'bg-gradient-primary text-white',
   'Developer': 'bg-pipeline-dev text-pipeline-dev-foreground',
   'QA Engineer': 'bg-pipeline-test text-pipeline-test-foreground',
   'DevOps Engineer': 'bg-pipeline-deploy text-pipeline-deploy-foreground',
@@ -45,14 +47,22 @@ const ROLE_COLORS = {
 export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) => {
   const [gameMode, setGameMode] = useState<'create' | 'join'>('create');
   const [hostName, setHostName] = useState('');
-  const [hostRole, setHostRole] = useState<Player['role']>('Developer');
+  const [hostRole, setHostRole] = useState<Player['role']>('Random');
   const [joinCode, setJoinCode] = useState('');
   const [joinPlayerName, setJoinPlayerName] = useState('');
-  const [joinPlayerRole, setJoinPlayerRole] = useState<Player['role']>('Developer');
+  const [joinPlayerRole, setJoinPlayerRole] = useState<Player['role']>('Random');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
   const { joinGame } = useGameRoom();
+
+  const assignRandomRole = (role: Player['role']): Player['role'] => {
+    if (role === 'Random') {
+      const nonRandomRoles = AVAILABLE_ROLES.slice(1); // Exclude 'Random'
+      return nonRandomRoles[Math.floor(Math.random() * nonRandomRoles.length)];
+    }
+    return role;
+  };
 
   const generateGameCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -93,6 +103,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
     setIsLoading(true);
     try {
       const gameCode = generateGameCode();
+      const finalHostRole = assignRandomRole(hostRole);
       
       // Create game session
       const { data: gameSession, error: sessionError } = await supabase
@@ -113,7 +124,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
         .insert({
           game_session_id: gameSession.id,
           player_name: hostName,
-          player_role: hostRole,
+          player_role: finalHostRole,
           player_order: 0,
           is_host: true,
           status: 'joined'
@@ -125,7 +136,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
       await logGameEvent('create', gameSession.id, {
         gameCode,
         hostName,
-        hostRole
+        hostRole: finalHostRole
       });
 
       toast({
@@ -191,8 +202,11 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
     
     setIsLoading(true);
     try {
+      // Assign random role if needed
+      const finalJoinRole = assignRandomRole(joinPlayerRole);
+      
       // Join the game using the hook
-      const result = await joinGame(codeValidation.sanitized, joinPlayerName, joinPlayerRole);
+      const result = await joinGame(codeValidation.sanitized, joinPlayerName, finalJoinRole);
 
       toast({
         title: "Joined Game!",

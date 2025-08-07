@@ -5,7 +5,7 @@ import { useAuditLogger } from './useAuditLogger';
 export interface GamePlayer {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer';
+  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
   isHost: boolean;
   joinedAt: string;
   status: 'joined' | 'left' | 'kicked';
@@ -128,8 +128,12 @@ export const useGameRoom = (gameSessionId?: string) => {
     };
   }, [gameSessionId, fetchGameState]);
 
-  // Join game as a new player
+  // Join game as a new player (with role assignment)
   const joinGame = useCallback(async (gameCode: string, playerName: string, playerRole: GamePlayer['role'] = 'Developer') => {
+    // Handle random role assignment
+    const finalRole = playerRole === 'Random' 
+      ? (['Developer', 'QA Engineer', 'DevOps Engineer', 'Product Owner', 'Security Engineer', 'Site Reliability Engineer'] as const)[Math.floor(Math.random() * 6)]
+      : playerRole;
     setLoading(true);
     setError(null);
     
@@ -137,7 +141,7 @@ export const useGameRoom = (gameSessionId?: string) => {
       const { data, error } = await supabase.rpc('join_game_session', {
         p_game_code: gameCode,
         p_player_name: playerName,
-        p_player_role: playerRole
+        p_player_role: finalRole
       });
       
       if (error) throw error;
@@ -145,7 +149,7 @@ export const useGameRoom = (gameSessionId?: string) => {
       const result = data[0];
       await logGameEvent('player_join', result.session_id, {
         playerName,
-        playerRole,
+        playerRole: finalRole,
         totalPlayers: result.current_players
       });
       
