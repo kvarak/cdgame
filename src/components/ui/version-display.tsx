@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 // This would be populated during build time from git describe
 const getVersion = (): string => {
   // Placeholder - in production this would come from build process
-  const gitDescribe = process.env.VITE_APP_VERSION || "v0.1-8-gf35fefa";
+  const gitDescribe = import.meta.env.VITE_APP_VERSION || "v0.1-8-gf35fefa";
   
   // Convert v0.1-8-gf35fefa to v0.1.8-gf35fefa
   const formatVersion = (version: string): string => {
