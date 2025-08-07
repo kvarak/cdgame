@@ -237,6 +237,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      generate_secure_game_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       join_game_session: {
         Args: {
           p_game_code: string
