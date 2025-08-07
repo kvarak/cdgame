@@ -112,86 +112,83 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
     
     setIsLoading(true);
     console.log('Creating game with user:', user?.id, 'hostName:', hostName);
-    console.log('Current domain:', window.location.hostname);
-    console.log('Current URL:', window.location.href);
-    console.log('User agent:', navigator.userAgent);
     
-    // Test network connectivity first
-    console.log('Testing basic network connectivity...');
-    try {
-      const response = await fetch('https://httpbin.org/get', { 
-        method: 'GET',
-        mode: 'cors'
-      });
-      console.log('Basic network test result:', response.status, response.ok);
-    } catch (networkError) {
-      console.error('Basic network test failed:', networkError);
-    }
-    
-    // Test direct Supabase connectivity
-    console.log('Testing direct Supabase connectivity...');
-    const SUPABASE_URL = "https://ufzzbcvcpxituioqhgfy.supabase.co";
-    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8";
-    
-    try {
-      const directResponse = await fetch(`${SUPABASE_URL}/rest/v1/`, {
-        method: 'GET',
-        headers: {
-          'apikey': SUPABASE_KEY,
-          'Content-Type': 'application/json'
-        }
-      });
-      console.log('Direct Supabase test result:', directResponse.status, directResponse.ok);
-      const responseText = await directResponse.text();
-      console.log('Direct Supabase response:', responseText.substring(0, 200));
-    } catch (directError) {
-      console.error('Direct Supabase test failed:', directError);
-    }
-    
-    // Test Supabase client with auth
-    console.log('Testing Supabase client connectivity...');
-    console.log('Current auth user:', user);
-    console.log('Auth session:', await supabase.auth.getSession());
-    
-    try {
-      // Test with a query that should work even without auth
-      const { data: testData, error: testError } = await supabase
-        .from('game_sessions')
-        .select('id')
-        .limit(1);
-      
-      console.log('Supabase client test result:', testData, testError);
-      
-      if (testError) {
-        console.error('Supabase client error details:', testError.code, testError.message, testError.details);
-      }
-    } catch (clientError) {
-      console.error('Supabase client test failed:', clientError);
-    }
-    
-    // Now try to create the game session
-    console.log('Attempting to create game session...');
     try {
       const gameCode = await generateGameCode();
       console.log('Generated game code:', gameCode);
       const finalHostRole = assignRandomRole(hostRole);
 
-      // Create local game session (bypass database for now)
-      const gameSession = {
-        id: crypto.randomUUID(),
-        game_code: gameCode,
-        host_name: hostName,
-        status: 'waiting' as const
-      };
+      console.log('Creating game session with 5-second timeout...');
       
-      console.log('Local game session created:', gameSession);
+      // Create game session with aggressive timeout
+      const gameSessionPromise = supabase
+        .from('game_sessions')
+        .insert({
+          game_code: gameCode,
+          host_name: hostName,
+          status: 'waiting'
+        })
+        .select()
+        .single();
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database operation timed out after 5 seconds')), 5000)
+      );
+
+      const { data: gameSession, error: sessionError } = await Promise.race([
+        gameSessionPromise,
+        timeoutPromise
+      ]) as any;
+
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        throw sessionError;
+      }
+      
+      console.log('Game session created:', gameSession);
+
+      // Create host player record with timeout
+      console.log('Creating host player record...');
+      
+      const hostPlayerPromise = supabase
+        .from('game_players')
+        .insert({
+          game_session_id: gameSession.id,
+          player_name: hostName,
+          player_role: finalHostRole,
+          player_order: 0,
+          is_host: true,
+          status: 'joined'
+        });
+
+      const hostTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Host player creation timed out after 5 seconds')), 5000)
+      );
+
+      const { error: hostError } = await Promise.race([
+        hostPlayerPromise,
+        hostTimeoutPromise
+      ]) as any;
+
+      if (hostError) {
+        console.error('Host error:', hostError);
+        throw hostError;
+      }
+      console.log('Host player record created successfully');
+
+      // Log game creation event
+      await logGameEvent('create', gameSession.id, {
+        gameCode,
+        hostName,
+        hostRole: finalHostRole
+      });
 
       toast({
-        title: "Game Created (Local Mode)!",
+        title: "Game Created!",
         description: `Game room created with code: ${gameCode}`,
       });
 
-      // Store game session locally
+      // Store game session securely
       secureSessionStorage.set('current_game', {
         gameCode,
         sessionId: gameSession.id,
