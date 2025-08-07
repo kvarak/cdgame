@@ -130,85 +130,45 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       let gameSession: any;
       
       try {
-        // Let's try direct HTTP approach instead of Supabase client
-        console.log('Step 7.2: Testing direct HTTP to Supabase...');
+        // Use Supabase client instead of direct HTTP
+        console.log('Step 7.2: Creating game session via Supabase client...');
         
-        const response = await fetch('https://ufzzbcvcpxituioqhgfy.supabase.co/rest/v1/game_sessions?select=id&limit=1', {
-          method: 'GET',
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        console.log('Step 7.3: Direct HTTP response:', response.status, response.statusText);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        console.log('Step 7.4: Direct HTTP data:', data);
-        
-        console.log('Step 7.5: Direct HTTP works! Now creating game via HTTP...');
-        
-        // Create game session via direct HTTP POST
-        const createResponse = await fetch('https://ufzzbcvcpxituioqhgfy.supabase.co/rest/v1/game_sessions', {
-          method: 'POST',
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
+        const { data: gameSessionData, error: sessionError } = await supabase
+          .from('game_sessions')
+          .insert({
             game_code: gameCode,
             host_name: hostName,
             status: 'waiting'
           })
-        });
+          .select()
+          .single();
         
-        console.log('Step 7.6: Create game response:', createResponse.status);
-        
-        if (!createResponse.ok) {
-          const errorText = await createResponse.text();
-          console.error('Create game failed:', errorText);
-          throw new Error(`Failed to create game: ${createResponse.status} ${errorText}`);
+        if (sessionError) {
+          console.error('Create game session failed:', sessionError);
+          throw new Error(`Failed to create game: ${sessionError.message}`);
         }
         
-        const gameSessionData = await createResponse.json();
-        console.log('Step 7.7: Game session created:', gameSessionData);
+        gameSession = gameSessionData;
+        console.log('Step 7.3: Game session created:', gameSession);
         
-        gameSession = gameSessionData[0]; // Supabase returns array
-        console.log('Step 8: Game session ID:', gameSession.id);
-        
-        // Add host player via HTTP
-        const playerResponse = await fetch('https://ufzzbcvcpxituioqhgfy.supabase.co/rest/v1/game_players', {
-          method: 'POST',
-          headers: {
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8',
-            'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
+        // Add host player via Supabase client
+        const { error: playerError } = await supabase
+          .from('game_players')
+          .insert({
             game_session_id: gameSession.id,
             player_name: hostName,
             player_role: finalHostRole,
             player_order: 0,
             is_host: true,
             status: 'joined'
-          })
-        });
+          });
         
-        if (!playerResponse.ok) {
-          const errorText = await playerResponse.text();
-          console.error('Add player failed:', errorText);
-          throw new Error(`Failed to add host player: ${playerResponse.status} ${errorText}`);
+        if (playerError) {
+          console.error('Add player failed:', playerError);
+          throw new Error(`Failed to add host player: ${playerError.message}`);
         }
         
-        console.log('Step 9: Host player added successfully');
+        console.log('Step 8: Host player added successfully');
         
       } catch (dbError) {
         console.error('Database operation failed:', dbError);
@@ -217,17 +177,16 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
 
       console.log('Step 9: Success! Game and host player created');
 
-      console.log('Step 10: Logging audit event...');
-      try {
-        await logGameEvent('create', gameSession.id, {
-          gameCode,
-          hostName,
-          hostRole: finalHostRole
-        });
-        console.log('Step 10 SUCCESS - Audit event logged');
-      } catch (auditError) {
-        console.warn('Step 10 WARNING - Audit logging failed but continuing:', auditError);
-      }
+      console.log('Step 10: Logging audit event (async)...');
+      // Use async logging to prevent blocking
+      logGameEvent('create', gameSession.id, {
+        gameCode,
+        hostName,
+        hostRole: finalHostRole
+      }).catch(auditError => {
+        console.warn('Audit logging failed but continuing:', auditError);
+      });
+      console.log('Step 10 SUCCESS - Audit event queued');
 
       console.log('Step 11: Showing success message...');
       toast({

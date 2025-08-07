@@ -269,6 +269,17 @@ export type Database = {
         }
         Returns: string
       }
+      log_audit_event_async: {
+        Args: {
+          p_event_type: string
+          p_event_action: string
+          p_resource_type?: string
+          p_resource_id?: string
+          p_metadata?: Json
+          p_user_id?: string
+        }
+        Returns: undefined
+      }
       update_player_role: {
         Args: {
           p_session_id: string
