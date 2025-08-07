@@ -119,98 +119,98 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       console.log('Generated game code:', gameCode);
       const finalHostRole = assignRandomRole(hostRole);
       
-      // Create game session with timeout
-      console.log('Creating game session...');
+      // Try using the join_game_session function instead of manual inserts
+      console.log('Using join_game_session function approach...');
       
-      const gameSessionPromise = supabase
-        .from('game_sessions')
-        .insert({
+      try {
+        // First create a minimal game session with a direct SQL call via RPC
+        console.log('Creating game session via RPC...');
+        const { data: sessionData, error: rpcError } = await supabase.rpc('create_game_session', {
+          p_game_code: gameCode,
+          p_host_name: hostName
+        });
+        
+        if (rpcError) {
+          console.error('RPC error:', rpcError);
+          throw rpcError;
+        }
+        
+        console.log('Game session created via RPC:', sessionData);
+        
+        // Now join as the host using the existing function
+        console.log('Joining as host...');
+        const { data: joinData, error: joinError } = await supabase.rpc('join_game_session', {
+          p_game_code: gameCode,
+          p_player_name: hostName,
+          p_player_role: finalHostRole
+        });
+        
+        if (joinError) {
+          console.error('Join error:', joinError);
+          throw joinError;
+        }
+        
+        console.log('Successfully joined as host:', joinData);
+        
+        // Extract the session data
+        const gameSession = {
+          id: joinData[0].session_id,
           game_code: gameCode,
           host_name: hostName,
           status: 'waiting'
-        })
-        .select()
-        .single();
-
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database operation timed out after 30 seconds')), 30000)
-      );
-
-      let result;
-      try {
-        result = await Promise.race([
-          gameSessionPromise,
-          timeoutPromise
-        ]) as any;
-      } catch (timeoutError) {
-        console.error('Database timeout error:', timeoutError);
-        // Try a direct insert without .select() and .single() as fallback
-        console.log('Trying simplified insert...');
-        const simpleResult = await supabase
+        };
+        
+        console.log('Using session data:', gameSession);
+        
+      } catch (error) {
+        console.error('RPC approach failed, trying direct insert...', error);
+        
+        // Fallback to the original approach
+        const gameSessionPromise = supabase
           .from('game_sessions')
           .insert({
             game_code: gameCode,
             host_name: hostName,
             status: 'waiting'
-          });
-        
-        if (simpleResult.error) {
-          console.error('Simple insert error:', simpleResult.error);
-          throw simpleResult.error;
-        }
-        
-        // Query the session back
-        const { data: sessions, error: queryError } = await supabase
-          .from('game_sessions')
+          })
           .select()
-          .eq('game_code', gameCode)
           .single();
-          
-        if (queryError) {
-          console.error('Query error:', queryError);
-          throw queryError;
+
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database operation timed out after 30 seconds')), 30000)
+        );
+
+        const { data: gameSession, error: sessionError } = await Promise.race([
+          gameSessionPromise,
+          timeoutPromise
+        ]) as any;
+
+        if (sessionError) {
+          console.error('Direct insert error:', sessionError);
+          throw sessionError;
         }
         
-        result = { data: sessions, error: null };
+        console.log('Game session created via direct insert:', gameSession);
+
+        // Create host player record
+        console.log('Creating host player record...');
+        const { error: hostError } = await supabase
+          .from('game_players')
+          .insert({
+            game_session_id: gameSession.id,
+            player_name: hostName,
+            player_role: finalHostRole,
+            player_order: 0,
+            is_host: true,
+            status: 'joined'
+          });
+
+        if (hostError) {
+          console.error('Host error:', hostError);
+          throw hostError;
+        }
+        console.log('Host player record created successfully');
       }
-
-      const { data: gameSession, error: sessionError } = result;
-
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw sessionError;
-      }
-      console.log('Game session created:', gameSession);
-
-      // Create host player record with timeout
-      console.log('Creating host player record...');
-      
-      const hostPlayerPromise = supabase
-        .from('game_players')
-        .insert({
-          game_session_id: gameSession.id,
-          player_name: hostName,
-          player_role: finalHostRole,
-          player_order: 0,
-          is_host: true,
-          status: 'joined'
-        });
-
-      const hostTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Host player creation timed out')), 10000)
-      );
-
-      const { error: hostError } = await Promise.race([
-        hostPlayerPromise,
-        hostTimeoutPromise
-      ]) as any;
-
-      if (hostError) {
-        console.error('Host error:', hostError);
-        throw hostError;
-      }
-      console.log('Host player record created successfully');
 
       // Log game creation event
       await logGameEvent('create', gameSession.id, {
