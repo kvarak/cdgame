@@ -126,11 +126,17 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
 
       console.log('Step 7: Using database function for game creation...');
       
-      // Use the database function to create game session and add host player
-      const { data: result, error } = await supabase.rpc('create_game_session', {
+      // Use the database function to create game session and add host player with timeout
+      const createGamePromise = supabase.rpc('create_game_session', {
         p_game_code: gameCode,
         p_host_name: hostName
       });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database request timed out after 10 seconds')), 10000)
+      );
+
+      const { data: result, error } = await Promise.race([createGamePromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('Step 7 FAILED - Database function error:', error);
