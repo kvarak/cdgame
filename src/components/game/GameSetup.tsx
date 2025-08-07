@@ -12,6 +12,7 @@ import { validatePlayerName, validateGameCode } from "@/lib/validation";
 import { isRateLimited, sanitizeErrorMessage, secureSessionStorage } from "@/lib/security";
 import { useAuditLogger } from "@/hooks/useAuditLogger";
 import { useGameRoom } from "@/hooks/useGameRoom";
+import { VersionDisplay } from "@/components/ui/version-display";
 
 interface Player {
   id: string;
@@ -422,6 +423,11 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
             </CardContent>
           </Card>
         )}
+        
+        {/* Version Display */}
+        <div className="flex justify-center mt-8 pb-4">
+          <VersionDisplay />
+        </div>
       </div>
     </div>
   );
