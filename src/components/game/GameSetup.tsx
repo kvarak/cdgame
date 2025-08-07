@@ -124,10 +124,10 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       const finalHostRole = assignRandomRole(hostRole);
       console.log('Step 6: Final host role:', finalHostRole);
 
-      console.log('Step 7: Creating game session directly...');
+      console.log('Step 7: Creating game session and adding host player...');
       
-      // Create game session directly with timeout
-      const insertPromise = supabase
+      // Single transaction approach - create session and add host in one go
+      const { data: gameSession, error: sessionError } = await supabase
         .from('game_sessions')
         .insert({
           game_code: gameCode,
@@ -137,53 +137,37 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         .select()
         .single();
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Database insert timed out after 8 seconds')), 8000)
-      );
-
-      const { data: gameSession, error: sessionError } = await Promise.race([insertPromise, timeoutPromise]) as any;
-
       if (sessionError) {
-        console.error('Step 7 FAILED - Session creation error:', sessionError);
-        throw new Error(`Failed to create game: ${sessionError.message}`);
+        console.error('Failed to create game session:', sessionError);
+        throw new Error(`Failed to create game session: ${sessionError.message}`);
       }
-      
-      console.log('Step 7 SUCCESS - Game session created:', gameSession);
-      
-      const gameSessionId = gameSession.id;
 
-      console.log('Step 8: Adding host player...');
+      console.log('Step 8: Game session created, adding host player...');
       
-      // Add host player using join_game_session function
-      const { data: joinResult, error: joinError } = await supabase.rpc('join_game_session', {
-        p_game_code: gameCode,
-        p_player_name: hostName,
-        p_player_role: finalHostRole
-      });
-
-      if (joinError) {
-        console.error('Step 8 FAILED - Host join error:', joinError);
-        throw new Error(`Failed to add host player: ${joinError.message}`);
-      }
-      
-      console.log('Step 8 SUCCESS - Host player added:', joinResult);
-
-      // Set host flag manually since join_game_session doesn't set it
-      const { error: updateError } = await supabase
+      // Add the host player directly
+      const { data: hostPlayer, error: playerError } = await supabase
         .from('game_players')
-        .update({ is_host: true, player_order: 0 })
-        .eq('game_session_id', gameSessionId)
-        .eq('player_name', hostName);
+        .insert({
+          game_session_id: gameSession.id,
+          player_name: hostName,
+          player_role: finalHostRole,
+          player_order: 0,
+          is_host: true,
+          status: 'joined'
+        })
+        .select()
+        .single();
 
-      if (updateError) {
-        console.warn('Warning: Could not set host flag:', updateError);
+      if (playerError) {
+        console.error('Failed to add host player:', playerError);
+        throw new Error(`Failed to add host player: ${playerError.message}`);
       }
 
-      const gameData = { id: gameSessionId };
+      console.log('Step 9: Success! Game and host player created');
 
       console.log('Step 10: Logging audit event...');
       try {
-        await logGameEvent('create', gameData.id, {
+        await logGameEvent('create', gameSession.id, {
           gameCode,
           hostName,
           hostRole: finalHostRole
@@ -202,12 +186,12 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       console.log('Step 12: Storing session data...');
       secureSessionStorage.set('current_game', {
         gameCode,
-        sessionId: gameData.id,
+        sessionId: gameSession.id,
         timestamp: Date.now()
       });
       
       console.log('Step 13: Entering waiting room...');
-      onEnterWaitingRoom(gameData.id, true, hostName);
+      onEnterWaitingRoom(gameSession.id, true, hostName);
       
       console.log('=== GAME CREATION COMPLETED SUCCESSFULLY ===');
       
