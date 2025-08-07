@@ -12,7 +12,8 @@ import {
   Target,
   Clock,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  GamepadIcon
 } from "lucide-react";
 
 interface Player {
@@ -23,6 +24,8 @@ interface Player {
 
 interface GameBoardProps {
   players: Player[];
+  gameCode: string;
+  gameSessionId: string;
   onEndGame: () => void;
 }
 
@@ -122,7 +125,7 @@ const CHALLENGE_COLORS = {
   feature: 'bg-success text-success-foreground'
 };
 
-export const GameBoard = ({ players, onEndGame }: GameBoardProps) => {
+export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameBoardProps) => {
   const [currentTurn, setCurrentTurn] = useState(0);
   const [pipelineStages, setPipelineStages] = useState(PIPELINE_STAGES);
   const [challenges, setChallenges] = useState(SAMPLE_CHALLENGES);
@@ -170,6 +173,10 @@ export const GameBoard = ({ players, onEndGame }: GameBoardProps) => {
               DevOps Pipeline Game
             </h1>
             <div className="flex items-center gap-4 mt-2">
+              <Badge variant="outline" className="flex items-center gap-1">
+                <GamepadIcon className="w-4 h-4" />
+                Game: {gameCode}
+              </Badge>
               <Badge variant="outline" className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
                 Turn {turnCount}

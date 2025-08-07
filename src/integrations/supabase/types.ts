@@ -14,7 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      game_players: {
+        Row: {
+          created_at: string
+          game_session_id: string
+          id: string
+          is_host: boolean
+          player_name: string
+          player_order: number
+          player_role: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          game_session_id: string
+          id?: string
+          is_host?: boolean
+          player_name: string
+          player_order: number
+          player_role: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          game_session_id?: string
+          id?: string
+          is_host?: boolean
+          player_name?: string
+          player_order?: number
+          player_role?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_players_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_sessions: {
+        Row: {
+          created_at: string
+          current_turn: number
+          game_code: string
+          host_name: string
+          id: string
+          pipeline_stage: number
+          score: number
+          status: string
+          turn_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_turn?: number
+          game_code: string
+          host_name: string
+          id?: string
+          pipeline_stage?: number
+          score?: number
+          status?: string
+          turn_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_turn?: number
+          game_code?: string
+          host_name?: string
+          id?: string
+          pipeline_stage?: number
+          score?: number
+          status?: string
+          turn_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
