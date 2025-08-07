@@ -124,28 +124,27 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       const finalHostRole = assignRandomRole(hostRole);
       console.log('Step 6: Final host role:', finalHostRole);
 
-      console.log('Step 7: Using database function for game creation...');
+      console.log('Step 7: Creating game session directly...');
       
-      // Use the database function to create game session and add host player with timeout
-      const createGamePromise = supabase.rpc('create_game_session', {
-        p_game_code: gameCode,
-        p_host_name: hostName
-      });
+      // Create game session directly instead of using RPC function
+      const { data: gameSession, error: sessionError } = await supabase
+        .from('game_sessions')
+        .insert({
+          game_code: gameCode,
+          host_name: hostName,
+          status: 'waiting'
+        })
+        .select()
+        .single();
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Database request timed out after 10 seconds')), 10000)
-      );
-
-      const { data: result, error } = await Promise.race([createGamePromise, timeoutPromise]) as any;
-
-      if (error) {
-        console.error('Step 7 FAILED - Database function error:', error);
-        throw new Error(`Failed to create game: ${error.message}`);
+      if (sessionError) {
+        console.error('Step 7 FAILED - Session creation error:', sessionError);
+        throw new Error(`Failed to create game: ${sessionError.message}`);
       }
       
-      console.log('Step 7 SUCCESS - Game session created via function:', result);
+      console.log('Step 7 SUCCESS - Game session created:', gameSession);
       
-      const gameSessionId = result;
+      const gameSessionId = gameSession.id;
 
       console.log('Step 8: Adding host player...');
       
@@ -174,11 +173,11 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         console.warn('Warning: Could not set host flag:', updateError);
       }
 
-      const gameSession = { id: gameSessionId };
+      const gameData = { id: gameSessionId };
 
       console.log('Step 10: Logging audit event...');
       try {
-        await logGameEvent('create', gameSession.id, {
+        await logGameEvent('create', gameData.id, {
           gameCode,
           hostName,
           hostRole: finalHostRole
@@ -197,12 +196,12 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       console.log('Step 12: Storing session data...');
       secureSessionStorage.set('current_game', {
         gameCode,
-        sessionId: gameSession.id,
+        sessionId: gameData.id,
         timestamp: Date.now()
       });
       
       console.log('Step 13: Entering waiting room...');
-      onEnterWaitingRoom(gameSession.id, true, hostName);
+      onEnterWaitingRoom(gameData.id, true, hostName);
       
       console.log('=== GAME CREATION COMPLETED SUCCESSFULLY ===');
       
