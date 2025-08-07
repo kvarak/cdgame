@@ -234,6 +234,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         title: "Game Created!",
         description: `Game room created with code: ${gameCode}`,
       });
+      console.log('Step 11 SUCCESS - Toast shown');
 
       console.log('Step 12: Storing session data...');
       secureSessionStorage.set('current_game', {
@@ -241,9 +242,15 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         sessionId: gameSession.id,
         timestamp: Date.now()
       });
+      console.log('Step 12 SUCCESS - Session data stored');
       
-      console.log('Step 13: Entering waiting room...');
+      console.log('Step 13: About to call onEnterWaitingRoom...');
+      console.log('onEnterWaitingRoom function:', typeof onEnterWaitingRoom);
+      console.log('gameSession.id:', gameSession.id);
+      console.log('hostName:', hostName);
+      
       onEnterWaitingRoom(gameSession.id, true, hostName);
+      console.log('Step 13 SUCCESS - onEnterWaitingRoom called');
       
       console.log('=== GAME CREATION COMPLETED SUCCESSFULLY ===');
       
