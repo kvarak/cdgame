@@ -64,13 +64,20 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
     return role;
   };
 
-  const generateGameCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+  const generateGameCode = async () => {
+    // Use secure database function for cryptographically secure game codes
+    const { data, error } = await supabase.rpc('generate_secure_game_code');
+    if (error) {
+      console.error('Error generating secure game code:', error);
+      // Fallback to client-side generation with enhanced security
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let result = '';
+      for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return result;
     }
-    return result;
+    return data;
   };
 
   const canCreateGame = hostName.trim() !== '';
@@ -102,7 +109,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
     
     setIsLoading(true);
     try {
-      const gameCode = generateGameCode();
+      const gameCode = await generateGameCode();
       const finalHostRole = assignRandomRole(hostRole);
       
       // Create game session
@@ -367,10 +374,10 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
                 </Label>
                 <Input
                   id="join-code"
-                  placeholder="Enter 6-character game code"
+                  placeholder="Enter 8-character game code"
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  maxLength={6}
+                  maxLength={8}
                   className="text-center text-2xl font-mono tracking-wider"
                 />
               </div>

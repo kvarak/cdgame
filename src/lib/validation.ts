@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { sanitizeInput, validateGameCodeSecurity, validatePlayerNameSecurity } from './security';
 
-// Game code validation - 6 characters, alphanumeric only
+// Game code validation - 8 characters, alphanumeric only (enhanced security)
 export const gameCodeSchema = z.string()
-  .length(6, "Game code must be exactly 6 characters")
+  .length(8, "Game code must be exactly 8 characters")
   .regex(/^[A-Z0-9]+$/, "Game code must contain only letters and numbers")
   .transform(str => str.toUpperCase());
 
