@@ -133,16 +133,33 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         // COMPREHENSIVE DEBUG: Test all aspects before game creation
         console.log('Step 7.2: Testing Supabase connectivity...');
         
+        // Debug: Check if supabase is actually imported
+        console.log('Supabase client check:', typeof supabase, !!supabase);
+        
+        if (!supabase) {
+          throw new Error('Supabase client is not available');
+        }
+        
         // Test 1: Check auth state
-        const { data: authUser, error: authError } = await supabase.auth.getUser();
-        console.log('Auth test:', { user: authUser?.user?.id, error: authError });
+        try {
+          const { data: authUser, error: authError } = await supabase.auth.getUser();
+          console.log('Auth test:', { user: authUser?.user?.id, error: authError });
+        } catch (authTestError) {
+          console.error('Auth test failed:', authTestError);
+          throw new Error(`Auth test failed: ${authTestError}`);
+        }
         
         // Test 2: Test simple SELECT
-        const { data: testSelect, error: selectError } = await supabase
-          .from('game_sessions')
-          .select('id')
-          .limit(1);
-        console.log('SELECT test:', { data: testSelect, error: selectError });
+        try {
+          const { data: testSelect, error: selectError } = await supabase
+            .from('game_sessions')
+            .select('id')
+            .limit(1);
+          console.log('SELECT test:', { data: testSelect, error: selectError });
+        } catch (selectTestError) {
+          console.error('SELECT test failed:', selectTestError);
+          throw new Error(`SELECT test failed: ${selectTestError}`);
+        }
         
         // Test 3: Now try INSERT
         console.log('Step 7.3: Creating game session via Supabase client...');
