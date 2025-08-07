@@ -71,12 +71,10 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
 
   const generateGameCode = async () => {
     console.log('Starting generateGameCode...');
-    // Use client-side generation directly for reliability in production
     console.log('Using client-side generation...');
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
     
-    // Generate unique 8-character code
     for (let i = 0; i < 8; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -113,148 +111,29 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
     }
     
     setIsLoading(true);
-    console.log('Creating game with user:', user?.id, 'hostName:', hostName);
-    
-    // Test basic Supabase connectivity first
-    console.log('Testing Supabase connectivity...');
-    try {
-      const { data: testData, error: testError } = await supabase
-        .from('game_sessions')
-        .select('count')
-        .limit(1);
-      
-      console.log('Connectivity test result:', testData, testError);
-      if (testError) {
-        throw new Error(`Supabase connection failed: ${testError.message}`);
-      }
-    } catch (connError) {
-      console.error('Connection test failed:', connError);
-      toast({
-        title: "Connection Error",
-        description: "Unable to connect to database. Please check your internet connection.",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
+    console.log('Creating LOCAL game with user:', user?.id, 'hostName:', hostName);
     
     try {
       const gameCode = await generateGameCode();
       console.log('Generated game code:', gameCode);
       const finalHostRole = assignRandomRole(hostRole);
+
+      // Create local game session (bypass database for now)
+      const gameSession = {
+        id: crypto.randomUUID(),
+        game_code: gameCode,
+        host_name: hostName,
+        status: 'waiting' as const
+      };
       
-      // Try using the create_game_session function instead of manual inserts
-      console.log('Using create_game_session function approach...');
-      let gameSession;
-      
-      try {
-        // Create game session via RPC
-        console.log('Creating game session via RPC...');
-        const { data: sessionId, error: rpcError } = await supabase.rpc('create_game_session', {
-          p_game_code: gameCode,
-          p_host_name: hostName
-        });
-        
-        if (rpcError) {
-          console.error('RPC error:', rpcError);
-          throw rpcError;
-        }
-        
-        console.log('Game session created via RPC, ID:', sessionId);
-        
-        // Build the session object
-        gameSession = {
-          id: sessionId,
-          game_code: gameCode,
-          host_name: hostName,
-          status: 'waiting'
-        };
-        
-        console.log('Using session data:', gameSession);
-        
-        // Create host player record using direct insert
-        console.log('Creating host player record...');
-        const { error: hostError } = await supabase
-          .from('game_players')
-          .insert({
-            game_session_id: gameSession.id,
-            player_name: hostName,
-            player_role: finalHostRole,
-            player_order: 0,
-            is_host: true,
-            status: 'joined'
-          });
-
-        if (hostError) {
-          console.error('Host error:', hostError);
-          throw hostError;
-        }
-        console.log('Host player record created successfully');
-        
-      } catch (error) {
-        console.error('RPC approach failed, trying direct insert...', error);
-        
-        // Fallback to the original approach with timeout
-        const gameSessionPromise = supabase
-          .from('game_sessions')
-          .insert({
-            game_code: gameCode,
-            host_name: hostName,
-            status: 'waiting'
-          })
-          .select()
-          .single();
-
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Database operation timed out after 30 seconds')), 30000)
-        );
-
-        const { data: fallbackSession, error: sessionError } = await Promise.race([
-          gameSessionPromise,
-          timeoutPromise
-        ]) as any;
-
-        if (sessionError) {
-          console.error('Direct insert error:', sessionError);
-          throw sessionError;
-        }
-        
-        gameSession = fallbackSession;
-        console.log('Game session created via direct insert:', gameSession);
-
-        // Create host player record
-        console.log('Creating host player record...');
-        const { error: hostError } = await supabase
-          .from('game_players')
-          .insert({
-            game_session_id: gameSession.id,
-            player_name: hostName,
-            player_role: finalHostRole,
-            player_order: 0,
-            is_host: true,
-            status: 'joined'
-          });
-
-        if (hostError) {
-          console.error('Host error:', hostError);
-          throw hostError;
-        }
-        console.log('Host player record created successfully');
-      }
-
-      // Log game creation event
-      await logGameEvent('create', gameSession.id, {
-        gameCode,
-        hostName,
-        hostRole: finalHostRole
-      });
+      console.log('Local game session created:', gameSession);
 
       toast({
-        title: "Game Created!",
+        title: "Game Created (Local Mode)!",
         description: `Game room created with code: ${gameCode}`,
       });
 
-      // Store game session securely
+      // Store game session locally
       secureSessionStorage.set('current_game', {
         gameCode,
         sessionId: gameSession.id,
@@ -264,11 +143,10 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       // Enter waiting room as host
       onEnterWaitingRoom(gameSession.id, true, hostName);
     } catch (error) {
-      console.error('Error creating game:', error);
-      const sanitizedError = sanitizeErrorMessage(error);
+      console.error('Error creating local game:', error);
       toast({
         title: "Error Creating Game",
-        description: sanitizedError,
+        description: "Failed to create game session",
         variant: "destructive",
       });
     } finally {
