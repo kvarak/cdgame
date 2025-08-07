@@ -2,22 +2,15 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
-import { execSync } from "child_process";
 
-// Get git version at build time
-function getGitVersion(): string {
-  try {
-    const gitDescribe = execSync('git describe --tags --long --dirty', { encoding: 'utf-8' }).trim();
-    console.log(`Build version: ${gitDescribe}`);
-    return gitDescribe;
-  } catch (error) {
-    console.warn('Could not get git version:', error);
-    // Use a more descriptive fallback that includes timestamp
-    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-    const fallback = `v0.1.0-${timestamp}-build`;
-    console.log(`Using fallback version: ${fallback}`);
-    return fallback;
-  }
+// Get build version with timestamp that updates on each publish
+function getBuildVersion(): string {
+  const now = new Date();
+  const timestamp = now.toISOString().slice(0, 19).replace(/[:-]/g, '');
+  const shortHash = Math.random().toString(36).substring(2, 8);
+  const version = `v0.1.0-${timestamp}-${shortHash}`;
+  console.log(`Build version: ${version}`);
+  return version;
 }
 
 // https://vitejs.dev/config/
@@ -37,6 +30,6 @@ export default defineConfig(({ mode }) => ({
     },
   },
   define: {
-    __APP_VERSION__: JSON.stringify(getGitVersion()),
+    __APP_VERSION__: JSON.stringify(getBuildVersion()),
   },
 }));
