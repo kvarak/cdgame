@@ -1,4 +1,4 @@
-.PHONY: build serve test clean
+.PHONY: build serve test clean version generate-version
 
 # Variables
 IMAGE_NAME = build-flow-boardgame
@@ -6,13 +6,18 @@ DEV_IMAGE_NAME = $(IMAGE_NAME)-dev
 CONTAINER_NAME = $(IMAGE_NAME)-container
 DEV_CONTAINER_NAME = $(IMAGE_NAME)-dev-container
 
+# Generate version from git
+generate-version:
+	@echo "Generating version from git..."
+	node scripts/generate-version.js
+
 # Build production Docker image
-build:
+build: generate-version
 	@echo "Building production Docker image..."
 	docker build --target production -t $(IMAGE_NAME):latest .
 
 # Build and serve development container
-serve:
+serve: generate-version
 	@echo "Building development Docker image..."
 	docker build --target development -t $(DEV_IMAGE_NAME):latest .
 	@echo "Starting development container..."
@@ -56,10 +61,11 @@ stop-prod:
 # Show help
 help:
 	@echo "Available commands:"
-	@echo "  make build     - Build production Docker image"
-	@echo "  make serve     - Build and run development container"
-	@echo "  make test      - Run tests in container"
-	@echo "  make run-prod  - Run production container"
-	@echo "  make stop-prod - Stop production container"
-	@echo "  make clean     - Clean up Docker resources"
-	@echo "  make help      - Show this help message"
+	@echo "  make generate-version - Generate version from git describe"
+	@echo "  make build           - Build production Docker image (includes version generation)"
+	@echo "  make serve           - Build and run development container (includes version generation)"
+	@echo "  make test            - Run tests in container"
+	@echo "  make run-prod        - Run production container"
+	@echo "  make stop-prod       - Stop production container"
+	@echo "  make clean           - Clean up Docker resources"
+	@echo "  make help            - Show this help message"
