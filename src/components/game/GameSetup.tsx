@@ -148,19 +148,29 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       console.error('Direct Supabase test failed:', directError);
     }
     
-    // Test Supabase client
+    // Test Supabase client with auth
     console.log('Testing Supabase client connectivity...');
+    console.log('Current auth user:', user);
+    console.log('Auth session:', await supabase.auth.getSession());
+    
     try {
+      // Test with a query that should work even without auth
       const { data: testData, error: testError } = await supabase
         .from('game_sessions')
-        .select('count')
+        .select('id')
         .limit(1);
       
       console.log('Supabase client test result:', testData, testError);
+      
+      if (testError) {
+        console.error('Supabase client error details:', testError.code, testError.message, testError.details);
+      }
     } catch (clientError) {
       console.error('Supabase client test failed:', clientError);
     }
     
+    // Now try to create the game session
+    console.log('Attempting to create game session...');
     try {
       const gameCode = await generateGameCode();
       console.log('Generated game code:', gameCode);
