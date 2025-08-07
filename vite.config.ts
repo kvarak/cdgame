@@ -12,8 +12,9 @@ function getGitVersion(): string {
     return gitDescribe;
   } catch (error) {
     console.warn('Could not get git version:', error);
-    // Fallback to package.json version or timestamp
-    const fallback = `v0.1.0-${Date.now()}-dev`;
+    // Use a more descriptive fallback that includes timestamp
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+    const fallback = `v0.1.0-${timestamp}-build`;
     console.log(`Using fallback version: ${fallback}`);
     return fallback;
   }
