@@ -3,6 +3,7 @@ import { GameSetup } from "@/components/game/GameSetup";
 import { GameBoard } from "@/components/game/GameBoard";
 import { GameHistory } from "@/components/game/GameHistory";
 import { WaitingRoom } from "@/components/game/WaitingRoom";
+import { SpectatorView } from "@/components/game/SpectatorView";
 import { AuthButton } from "@/components/auth/AuthButton";
 
 interface Player {
@@ -72,7 +73,19 @@ const Index = () => {
   }
 
   if (gameState === 'playing') {
-    return <GameBoard players={players} gameCode={gameCode} gameSessionId={gameSessionId} onEndGame={handleEndGame} />;
+    // Host gets full game control, others get spectator view
+    if (isHost) {
+      return <GameBoard players={players} gameCode={gameCode} gameSessionId={gameSessionId} onEndGame={handleEndGame} />;
+    } else {
+      return (
+        <SpectatorView 
+          gameSessionId={gameSessionId}
+          currentPlayerName={currentPlayerName}
+          gameCode={gameCode}
+          onLeaveGame={handleLeaveWaitingRoom}
+        />
+      );
+    }
   }
 
   return (
