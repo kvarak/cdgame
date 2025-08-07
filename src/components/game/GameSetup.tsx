@@ -124,71 +124,51 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       const finalHostRole = assignRandomRole(hostRole);
       console.log('Step 6: Final host role:', finalHostRole);
 
-      console.log('Step 7: Testing Supabase connection...');
+      console.log('Step 7: Using database function for game creation...');
       
-      // Test Supabase connection first
-      const { data: testData, error: testError } = await supabase
-        .from('game_sessions')
-        .select('count', { count: 'exact', head: true });
-        
-      if (testError) {
-        console.error('Step 7 FAILED - Supabase connection test failed:', testError);
-        throw new Error(`Database connection failed: ${testError.message}`);
+      // Use the database function to create game session and add host player
+      const { data: result, error } = await supabase.rpc('create_game_session', {
+        p_game_code: gameCode,
+        p_host_name: hostName
+      });
+
+      if (error) {
+        console.error('Step 7 FAILED - Database function error:', error);
+        throw new Error(`Failed to create game: ${error.message}`);
       }
       
-      console.log('Step 7 SUCCESS - Supabase connection working, sessions count:', testData);
-
-      console.log('Step 8: Creating game session...');
-      const sessionStart = Date.now();
+      console.log('Step 7 SUCCESS - Game session created via function:', result);
       
-      const { data: gameSession, error: sessionError } = await supabase
-        .from('game_sessions')
-        .insert({
-          game_code: gameCode,
-          host_name: hostName,
-          status: 'waiting'
-        })
-        .select()
-        .single();
+      const gameSessionId = result;
 
-      const sessionDuration = Date.now() - sessionStart;
-      console.log(`Step 8 completed in ${sessionDuration}ms`);
+      console.log('Step 8: Adding host player...');
+      
+      // Add host player using join_game_session function
+      const { data: joinResult, error: joinError } = await supabase.rpc('join_game_session', {
+        p_game_code: gameCode,
+        p_player_name: hostName,
+        p_player_role: finalHostRole
+      });
 
-      if (sessionError) {
-        console.error('Step 8 FAILED - Session creation error:', sessionError);
-        throw new Error(`Failed to create game session: ${sessionError.message}`);
+      if (joinError) {
+        console.error('Step 8 FAILED - Host join error:', joinError);
+        throw new Error(`Failed to add host player: ${joinError.message}`);
       }
       
-      if (!gameSession) {
-        console.error('Step 8 FAILED - No game session returned');
-        throw new Error('No game session data returned from database');
-      }
-      
-      console.log('Step 8 SUCCESS - Game session created:', gameSession);
+      console.log('Step 8 SUCCESS - Host player added:', joinResult);
 
-      console.log('Step 9: Creating host player record...');
-      const hostStart = Date.now();
-      
-      const { error: hostError } = await supabase
+      // Set host flag manually since join_game_session doesn't set it
+      const { error: updateError } = await supabase
         .from('game_players')
-        .insert({
-          game_session_id: gameSession.id,
-          player_name: hostName,
-          player_role: finalHostRole,
-          player_order: 0,
-          is_host: true,
-          status: 'joined'
-        });
+        .update({ is_host: true, player_order: 0 })
+        .eq('game_session_id', gameSessionId)
+        .eq('player_name', hostName);
 
-      const hostDuration = Date.now() - hostStart;
-      console.log(`Step 9 completed in ${hostDuration}ms`);
-
-      if (hostError) {
-        console.error('Step 9 FAILED - Host player creation error:', hostError);
-        throw new Error(`Failed to create host player: ${hostError.message}`);
+      if (updateError) {
+        console.warn('Warning: Could not set host flag:', updateError);
       }
-      
-      console.log('Step 9 SUCCESS - Host player record created');
+
+      const gameSession = { id: gameSessionId };
 
       console.log('Step 10: Logging audit event...');
       try {
