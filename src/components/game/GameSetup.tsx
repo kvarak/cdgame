@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/devops-hero.jpg";
 import { validatePlayerName, validateGameCode } from "@/lib/validation";
+import { isRateLimited, sanitizeErrorMessage, secureSessionStorage } from "@/lib/security";
 
 interface Player {
   id: string;
@@ -107,6 +108,16 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
   const handleCreateGame = async () => {
     if (!canCreateGame) return;
     
+    // Rate limiting check
+    if (isRateLimited('create_game', 3, 60000)) {
+      toast({
+        title: "Too Many Attempts",
+        description: "Please wait before creating another game.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Validate all player names
     const invalidPlayer = players.find((player, index) => {
       const validation = validatePlayerName(player.name);
@@ -161,12 +172,20 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
         description: `Game code: ${gameCode}`,
       });
 
+      // Store game session securely
+      secureSessionStorage.set('current_game', {
+        gameCode,
+        sessionId: gameSession.id,
+        timestamp: Date.now()
+      });
+      
       onStartGame(playersWithRoles, gameCode, gameSession.id);
     } catch (error) {
       console.error('Error creating game:', error);
+      const sanitizedError = sanitizeErrorMessage(error);
       toast({
         title: "Error",
-        description: "Failed to create game. Please try again.",
+        description: sanitizedError,
         variant: "destructive",
       });
     } finally {
@@ -176,6 +195,16 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
 
   const handleJoinGame = async () => {
     if (!canJoinGame) return;
+    
+    // Rate limiting check
+    if (isRateLimited('join_game', 5, 60000)) {
+      toast({
+        title: "Too Many Attempts",
+        description: "Please wait before trying to join another game.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Validate game code
     const validation = validateGameCode(joinCode);
@@ -221,12 +250,20 @@ export const GameSetup = ({ onStartGame }: GameSetupProps) => {
         description: `Connected to game ${validation.sanitized}`,
       });
 
+      // Store game session securely
+      secureSessionStorage.set('current_game', {
+        gameCode: validation.sanitized,
+        sessionId: gameSession.id,
+        timestamp: Date.now()
+      });
+      
       onStartGame(gamePlayers, validation.sanitized, gameSession.id);
     } catch (error) {
       console.error('Error joining game:', error);
+      const sanitizedError = sanitizeErrorMessage(error);
       toast({
         title: "Error",
-        description: "Failed to join game. Check the code and try again.",
+        description: sanitizedError,
         variant: "destructive",
       });
     } finally {

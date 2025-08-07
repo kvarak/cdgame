@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sanitizeInput, validateGameCodeSecurity, validatePlayerNameSecurity } from './security';
 
 // Game code validation - 6 characters, alphanumeric only
 export const gameCodeSchema = z.string()
@@ -16,19 +17,19 @@ export const playerNameSchema = z.string()
 // Host name validation
 export const hostNameSchema = playerNameSchema;
 
-// Sanitize HTML to prevent XSS attacks
-export const sanitizeInput = (input: string): string => {
-  return input
-    .replace(/[<>]/g, '') // Remove < and > characters
-    .replace(/javascript:/gi, '') // Remove javascript: protocol
-    .replace(/on\w+=/gi, '') // Remove event handlers like onclick=
-    .trim();
-};
+// Enhanced validation with security checks
 
-// Validate and sanitize player name
+// Validate and sanitize player name with enhanced security
 export const validatePlayerName = (name: string): { isValid: boolean; sanitized: string; error?: string } => {
   try {
     const sanitized = sanitizeInput(name);
+    
+    // Additional security validation
+    const securityCheck = validatePlayerNameSecurity(sanitized);
+    if (!securityCheck.isValid) {
+      return { isValid: false, sanitized, error: securityCheck.error };
+    }
+    
     const validated = playerNameSchema.parse(sanitized);
     return { isValid: true, sanitized: validated };
   } catch (error) {
@@ -39,10 +40,17 @@ export const validatePlayerName = (name: string): { isValid: boolean; sanitized:
   }
 };
 
-// Validate game code
+// Validate game code with enhanced security
 export const validateGameCode = (code: string): { isValid: boolean; sanitized: string; error?: string } => {
   try {
     const sanitized = sanitizeInput(code);
+    
+    // Additional security validation
+    const securityCheck = validateGameCodeSecurity(sanitized);
+    if (!securityCheck.isValid) {
+      return { isValid: false, sanitized, error: securityCheck.error };
+    }
+    
     const validated = gameCodeSchema.parse(sanitized);
     return { isValid: true, sanitized: validated };
   } catch (error) {
