@@ -8,35 +8,65 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 240 8% 6%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 240 8% 6%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 210 100% 60%;
+    --primary-foreground: 240 10% 4%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 240 6% 12%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 240 6% 12%;
+    --muted-foreground: 240 5% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 162 100% 45%;
+    --accent-foreground: 240 10% 4%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 240 6% 12%;
+    --input: 240 6% 12%;
+    --ring: 210 100% 60%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* DevOps Pipeline Colors */
+    --pipeline-dev: 45 100% 60%;
+    --pipeline-dev-foreground: 240 10% 4%;
+    --pipeline-test: 270 100% 70%;
+    --pipeline-test-foreground: 0 0% 98%;
+    --pipeline-deploy: 162 100% 45%;
+    --pipeline-deploy-foreground: 240 10% 4%;
+    --pipeline-monitor: 30 100% 60%;
+    --pipeline-monitor-foreground: 240 10% 4%;
+
+    /* Game UI Colors */
+    --success: 162 100% 45%;
+    --success-foreground: 240 10% 4%;
+    --warning: 45 100% 60%;
+    --warning-foreground: 240 10% 4%;
+    --error: 0 84% 60%;
+    --error-foreground: 0 0% 98%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(210 100% 60%), hsl(162 100% 45%));
+    --gradient-pipeline: linear-gradient(90deg, hsl(45 100% 60%), hsl(270 100% 70%), hsl(162 100% 45%), hsl(30 100% 60%));
+    --gradient-card: linear-gradient(135deg, hsl(240 8% 6%), hsl(240 6% 8%));
+
+    /* Shadows */
+    --shadow-card: 0 4px 6px -1px hsl(240 10% 4% / 0.4), 0 2px 4px -1px hsl(240 10% 4% / 0.3);
+    --shadow-glow: 0 0 20px hsl(210 100% 60% / 0.3);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     --sidebar-background: 0 0% 98%;
 

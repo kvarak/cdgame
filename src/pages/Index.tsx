@@ -1,14 +1,32 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { GameSetup } from "@/components/game/GameSetup";
+import { GameBoard } from "@/components/game/GameBoard";
+
+interface Player {
+  id: string;
+  name: string;
+  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer';
+}
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
-  );
+  const [gameState, setGameState] = useState<'setup' | 'playing'>('setup');
+  const [players, setPlayers] = useState<Player[]>([]);
+
+  const handleStartGame = (gamePlayers: Player[]) => {
+    setPlayers(gamePlayers);
+    setGameState('playing');
+  };
+
+  const handleEndGame = () => {
+    setGameState('setup');
+    setPlayers([]);
+  };
+
+  if (gameState === 'playing') {
+    return <GameBoard players={players} onEndGame={handleEndGame} />;
+  }
+
+  return <GameSetup onStartGame={handleStartGame} />;
 };
 
 export default Index;
