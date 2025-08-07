@@ -18,7 +18,7 @@ serve:
 	@echo "Starting development container..."
 	docker run -it --rm \
 		--name $(DEV_CONTAINER_NAME) \
-		-p 8080:8080 \
+		--network=host \
 		-v $(PWD):/app \
 		-v /app/node_modules \
 		$(DEV_IMAGE_NAME):latest
