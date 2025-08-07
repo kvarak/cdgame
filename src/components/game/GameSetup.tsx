@@ -119,13 +119,14 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       console.log('Generated game code:', gameCode);
       const finalHostRole = assignRandomRole(hostRole);
       
-      // Try using the join_game_session function instead of manual inserts
-      console.log('Using join_game_session function approach...');
+      // Try using the create_game_session function instead of manual inserts
+      console.log('Using create_game_session function approach...');
+      let gameSession;
       
       try {
-        // First create a minimal game session with a direct SQL call via RPC
+        // Create game session via RPC
         console.log('Creating game session via RPC...');
-        const { data: sessionData, error: rpcError } = await supabase.rpc('create_game_session', {
+        const { data: sessionId, error: rpcError } = await supabase.rpc('create_game_session', {
           p_game_code: gameCode,
           p_host_name: hostName
         });
@@ -135,26 +136,11 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
           throw rpcError;
         }
         
-        console.log('Game session created via RPC:', sessionData);
+        console.log('Game session created via RPC, ID:', sessionId);
         
-        // Now join as the host using the existing function
-        console.log('Joining as host...');
-        const { data: joinData, error: joinError } = await supabase.rpc('join_game_session', {
-          p_game_code: gameCode,
-          p_player_name: hostName,
-          p_player_role: finalHostRole
-        });
-        
-        if (joinError) {
-          console.error('Join error:', joinError);
-          throw joinError;
-        }
-        
-        console.log('Successfully joined as host:', joinData);
-        
-        // Extract the session data
-        const gameSession = {
-          id: joinData[0].session_id,
+        // Build the session object
+        gameSession = {
+          id: sessionId,
           game_code: gameCode,
           host_name: hostName,
           status: 'waiting'
@@ -162,10 +148,29 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         
         console.log('Using session data:', gameSession);
         
+        // Create host player record using direct insert
+        console.log('Creating host player record...');
+        const { error: hostError } = await supabase
+          .from('game_players')
+          .insert({
+            game_session_id: gameSession.id,
+            player_name: hostName,
+            player_role: finalHostRole,
+            player_order: 0,
+            is_host: true,
+            status: 'joined'
+          });
+
+        if (hostError) {
+          console.error('Host error:', hostError);
+          throw hostError;
+        }
+        console.log('Host player record created successfully');
+        
       } catch (error) {
         console.error('RPC approach failed, trying direct insert...', error);
         
-        // Fallback to the original approach
+        // Fallback to the original approach with timeout
         const gameSessionPromise = supabase
           .from('game_sessions')
           .insert({
@@ -180,7 +185,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
           setTimeout(() => reject(new Error('Database operation timed out after 30 seconds')), 30000)
         );
 
-        const { data: gameSession, error: sessionError } = await Promise.race([
+        const { data: fallbackSession, error: sessionError } = await Promise.race([
           gameSessionPromise,
           timeoutPromise
         ]) as any;
@@ -190,6 +195,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
           throw sessionError;
         }
         
+        gameSession = fallbackSession;
         console.log('Game session created via direct insert:', gameSession);
 
         // Create host player record
