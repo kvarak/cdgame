@@ -134,13 +134,48 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
 
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database operation timed out')), 10000)
+        setTimeout(() => reject(new Error('Database operation timed out after 30 seconds')), 30000)
       );
 
-      const { data: gameSession, error: sessionError } = await Promise.race([
-        gameSessionPromise,
-        timeoutPromise
-      ]) as any;
+      let result;
+      try {
+        result = await Promise.race([
+          gameSessionPromise,
+          timeoutPromise
+        ]) as any;
+      } catch (timeoutError) {
+        console.error('Database timeout error:', timeoutError);
+        // Try a direct insert without .select() and .single() as fallback
+        console.log('Trying simplified insert...');
+        const simpleResult = await supabase
+          .from('game_sessions')
+          .insert({
+            game_code: gameCode,
+            host_name: hostName,
+            status: 'waiting'
+          });
+        
+        if (simpleResult.error) {
+          console.error('Simple insert error:', simpleResult.error);
+          throw simpleResult.error;
+        }
+        
+        // Query the session back
+        const { data: sessions, error: queryError } = await supabase
+          .from('game_sessions')
+          .select()
+          .eq('game_code', gameCode)
+          .single();
+          
+        if (queryError) {
+          console.error('Query error:', queryError);
+          throw queryError;
+        }
+        
+        result = { data: sessions, error: null };
+      }
+
+      const { data: gameSession, error: sessionError } = result;
 
       if (sessionError) {
         console.error('Session error:', sessionError);
