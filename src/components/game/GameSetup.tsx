@@ -111,7 +111,55 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
     }
     
     setIsLoading(true);
-    console.log('Creating LOCAL game with user:', user?.id, 'hostName:', hostName);
+    console.log('Creating game with user:', user?.id, 'hostName:', hostName);
+    console.log('Current domain:', window.location.hostname);
+    console.log('Current URL:', window.location.href);
+    console.log('User agent:', navigator.userAgent);
+    
+    // Test network connectivity first
+    console.log('Testing basic network connectivity...');
+    try {
+      const response = await fetch('https://httpbin.org/get', { 
+        method: 'GET',
+        mode: 'cors'
+      });
+      console.log('Basic network test result:', response.status, response.ok);
+    } catch (networkError) {
+      console.error('Basic network test failed:', networkError);
+    }
+    
+    // Test direct Supabase connectivity
+    console.log('Testing direct Supabase connectivity...');
+    const SUPABASE_URL = "https://ufzzbcvcpxituioqhgfy.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmenpiY3ZjcHhpdHVpb3FoZ2Z5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1NDM1NjksImV4cCI6MjA3MDExOTU2OX0.PbELUnOtqua4XkngOKZiwn8W0Njwf9hadfw7UojY1C8";
+    
+    try {
+      const directResponse = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+        method: 'GET',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Content-Type': 'application/json'
+        }
+      });
+      console.log('Direct Supabase test result:', directResponse.status, directResponse.ok);
+      const responseText = await directResponse.text();
+      console.log('Direct Supabase response:', responseText.substring(0, 200));
+    } catch (directError) {
+      console.error('Direct Supabase test failed:', directError);
+    }
+    
+    // Test Supabase client
+    console.log('Testing Supabase client connectivity...');
+    try {
+      const { data: testData, error: testError } = await supabase
+        .from('game_sessions')
+        .select('count')
+        .limit(1);
+      
+      console.log('Supabase client test result:', testData, testError);
+    } catch (clientError) {
+      console.error('Supabase client test failed:', clientError);
+    }
     
     try {
       const gameCode = await generateGameCode();
