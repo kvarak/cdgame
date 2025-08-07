@@ -125,48 +125,73 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       console.log('Step 6: Final host role:', finalHostRole);
 
       console.log('Step 7: Creating game session and adding host player...');
-      console.log('Step 7.1: About to call supabase.from(game_sessions)...');
+      console.log('Step 7.1: Checking Supabase client...', !!supabase);
       
-      // Single transaction approach - create session and add host in one go
-      console.log('Step 7.2: Creating insert query...');
-      const insertQuery = supabase
-        .from('game_sessions')
-        .insert({
-          game_code: gameCode,
-          host_name: hostName,
-          status: 'waiting'
-        })
-        .select()
-        .single();
+      let gameSession: any;
       
-      console.log('Step 7.3: About to await insert query...');
-      const { data: gameSession, error: sessionError } = await insertQuery;
-      console.log('Step 7.4: Insert query completed!');
+      try {
+        // Test Supabase connectivity first
+        console.log('Step 7.2: Testing Supabase connectivity...');
+        const { data: testData, error: testError } = await Promise.race([
+          supabase.from('game_sessions').select('count').limit(1),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Connectivity test timed out')), 3000)
+          )
+        ]) as any;
+        
+        if (testError) {
+          console.error('Step 7.2 FAILED - Connectivity test failed:', testError);
+          throw new Error(`Database connectivity issue: ${testError.message}`);
+        }
+        
+        console.log('Step 7.2 SUCCESS - Supabase is connected');
+        
+        // Now try the actual insert with timeout
+        console.log('Step 7.3: Creating game session...');
+        const { data: sessionData, error: sessionError } = await Promise.race([
+          supabase
+            .from('game_sessions')
+            .insert({
+              game_code: gameCode,
+              host_name: hostName,
+              status: 'waiting'
+            })
+            .select()
+            .single(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Game session insert timed out after 5 seconds')), 5000)
+          )
+        ]) as any;
 
-      if (sessionError) {
-        console.error('Failed to create game session:', sessionError);
-        throw new Error(`Failed to create game session: ${sessionError.message}`);
-      }
+        if (sessionError) {
+          console.error('Failed to create game session:', sessionError);
+          throw new Error(`Failed to create game session: ${sessionError.message}`);
+        }
 
-      console.log('Step 8: Game session created, adding host player...');
-      
-      // Add the host player directly
-      const { data: hostPlayer, error: playerError } = await supabase
-        .from('game_players')
-        .insert({
-          game_session_id: gameSession.id,
-          player_name: hostName,
-          player_role: finalHostRole,
-          player_order: 0,
-          is_host: true,
-          status: 'joined'
-        })
-        .select()
-        .single();
+        gameSession = sessionData;
+        console.log('Step 8: Game session created, adding host player...');
+        
+        // Add the host player directly
+        const { data: hostPlayer, error: playerError } = await supabase
+          .from('game_players')
+          .insert({
+            game_session_id: gameSession.id,
+            player_name: hostName,
+            player_role: finalHostRole,
+            player_order: 0,
+            is_host: true,
+            status: 'joined'
+          })
+          .select()
+          .single();
 
-      if (playerError) {
-        console.error('Failed to add host player:', playerError);
-        throw new Error(`Failed to add host player: ${playerError.message}`);
+        if (playerError) {
+          console.error('Failed to add host player:', playerError);
+          throw new Error(`Failed to add host player: ${playerError.message}`);
+        }
+      } catch (dbError) {
+        console.error('Database operation failed:', dbError);
+        throw dbError;
       }
 
       console.log('Step 9: Success! Game and host player created');
