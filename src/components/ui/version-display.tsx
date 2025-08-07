@@ -1,9 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 
-// This would be populated during build time from git describe
+// This gets the version from build time (set in vite.config.ts)
 const getVersion = (): string => {
-  // Placeholder - in production this would come from build process
-  const gitDescribe = import.meta.env.VITE_APP_VERSION || "v0.1-8-gf35fefa";
+  // Use the build-time version that's automatically set during Vite build
+  const gitDescribe = __APP_VERSION__ || "v0.1-dev";
   
   // Convert v0.1-8-gf35fefa to v0.1.8-gf35fefa
   const formatVersion = (version: string): string => {
