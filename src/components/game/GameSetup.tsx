@@ -114,6 +114,30 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
     
     setIsLoading(true);
     console.log('Creating game with user:', user?.id, 'hostName:', hostName);
+    
+    // Test basic Supabase connectivity first
+    console.log('Testing Supabase connectivity...');
+    try {
+      const { data: testData, error: testError } = await supabase
+        .from('game_sessions')
+        .select('count')
+        .limit(1);
+      
+      console.log('Connectivity test result:', testData, testError);
+      if (testError) {
+        throw new Error(`Supabase connection failed: ${testError.message}`);
+      }
+    } catch (connError) {
+      console.error('Connection test failed:', connError);
+      toast({
+        title: "Connection Error",
+        description: "Unable to connect to database. Please check your internet connection.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       const gameCode = await generateGameCode();
       console.log('Generated game code:', gameCode);
