@@ -36,6 +36,26 @@ npm i
 npm run dev
 ```
 
+**Use Docker (Recommended for Production)**
+
+If you prefer containerized development or want to ensure consistent environments, use the included Docker setup:
+
+```sh
+# Build and serve for development
+make serve
+
+# Build production image
+make build
+
+# Run tests in container
+make test
+
+# Clean up Docker resources
+make clean
+```
+
+Requirements: Docker installed on your system.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
