@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GameSetup } from "@/components/game/GameSetup";
+import { SimpleGameSetup } from "@/components/game/SimpleGameSetup";
 import { GameBoard } from "@/components/game/GameBoard";
 import { GameHistory } from "@/components/game/GameHistory";
 import { WaitingRoom } from "@/components/game/WaitingRoom";
@@ -88,13 +88,7 @@ const Index = () => {
     }
   }
 
-  return (
-    <GameSetup 
-      onStartGame={handleStartGame} 
-      onEnterWaitingRoom={handleEnterWaitingRoom} 
-      onViewHistory={handleViewHistory}
-    />
-  );
+  return <SimpleGameSetup />;
 };
 
 export default Index;
