@@ -111,16 +111,36 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
     }
     
     setIsLoading(true);
-    console.log('Creating game with user:', user?.id, 'hostName:', hostName);
+    console.log('=== STARTING GAME CREATION ===');
+    console.log('Step 1: User authentication check:', user?.id);
+    console.log('Step 2: Host name:', hostName);
+    console.log('Step 3: Host role:', hostRole);
     
     try {
+      console.log('Step 4: Generating game code...');
       const gameCode = await generateGameCode();
-      console.log('Generated game code:', gameCode);
-      const finalHostRole = assignRandomRole(hostRole);
-
-      console.log('Creating game session with Supabase client...');
+      console.log('Step 5: Generated game code:', gameCode);
       
-      // Create game session using Supabase client
+      const finalHostRole = assignRandomRole(hostRole);
+      console.log('Step 6: Final host role:', finalHostRole);
+
+      console.log('Step 7: Testing Supabase connection...');
+      
+      // Test Supabase connection first
+      const { data: testData, error: testError } = await supabase
+        .from('game_sessions')
+        .select('count', { count: 'exact', head: true });
+        
+      if (testError) {
+        console.error('Step 7 FAILED - Supabase connection test failed:', testError);
+        throw new Error(`Database connection failed: ${testError.message}`);
+      }
+      
+      console.log('Step 7 SUCCESS - Supabase connection working, sessions count:', testData);
+
+      console.log('Step 8: Creating game session...');
+      const sessionStart = Date.now();
+      
       const { data: gameSession, error: sessionError } = await supabase
         .from('game_sessions')
         .insert({
@@ -131,15 +151,24 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         .select()
         .single();
 
+      const sessionDuration = Date.now() - sessionStart;
+      console.log(`Step 8 completed in ${sessionDuration}ms`);
+
       if (sessionError) {
-        console.error('Session error:', sessionError);
-        throw sessionError;
+        console.error('Step 8 FAILED - Session creation error:', sessionError);
+        throw new Error(`Failed to create game session: ${sessionError.message}`);
       }
       
-      console.log('Game session created:', gameSession);
+      if (!gameSession) {
+        console.error('Step 8 FAILED - No game session returned');
+        throw new Error('No game session data returned from database');
+      }
+      
+      console.log('Step 8 SUCCESS - Game session created:', gameSession);
 
-      // Create host player record
-      console.log('Creating host player record...');
+      console.log('Step 9: Creating host player record...');
+      const hostStart = Date.now();
+      
       const { error: hostError } = await supabase
         .from('game_players')
         .insert({
@@ -151,42 +180,60 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
           status: 'joined'
         });
 
+      const hostDuration = Date.now() - hostStart;
+      console.log(`Step 9 completed in ${hostDuration}ms`);
+
       if (hostError) {
-        console.error('Host error:', hostError);
-        throw hostError;
+        console.error('Step 9 FAILED - Host player creation error:', hostError);
+        throw new Error(`Failed to create host player: ${hostError.message}`);
       }
-      console.log('Host player record created successfully');
+      
+      console.log('Step 9 SUCCESS - Host player record created');
 
-      // Log game creation event
-      await logGameEvent('create', gameSession.id, {
-        gameCode,
-        hostName,
-        hostRole: finalHostRole
-      });
+      console.log('Step 10: Logging audit event...');
+      try {
+        await logGameEvent('create', gameSession.id, {
+          gameCode,
+          hostName,
+          hostRole: finalHostRole
+        });
+        console.log('Step 10 SUCCESS - Audit event logged');
+      } catch (auditError) {
+        console.warn('Step 10 WARNING - Audit logging failed but continuing:', auditError);
+      }
 
+      console.log('Step 11: Showing success message...');
       toast({
         title: "Game Created!",
         description: `Game room created with code: ${gameCode}`,
       });
 
-      // Store game session securely
+      console.log('Step 12: Storing session data...');
       secureSessionStorage.set('current_game', {
         gameCode,
         sessionId: gameSession.id,
         timestamp: Date.now()
       });
       
-      // Enter waiting room as host
+      console.log('Step 13: Entering waiting room...');
       onEnterWaitingRoom(gameSession.id, true, hostName);
+      
+      console.log('=== GAME CREATION COMPLETED SUCCESSFULLY ===');
+      
     } catch (error) {
-      console.error('Error creating local game:', error);
+      console.error('=== GAME CREATION FAILED ===');
+      console.error('Error details:', error);
+      console.error('Error type:', typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      
       toast({
         title: "Error Creating Game",
-        description: "Failed to create game session",
+        description: error instanceof Error ? error.message : "Unknown error occurred",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
+      console.log('=== GAME CREATION PROCESS ENDED ===');
     }
   };
 
