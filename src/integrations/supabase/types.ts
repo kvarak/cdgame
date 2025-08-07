@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      game_history: {
+        Row: {
+          completed_at: string
+          created_at: string
+          final_score: number
+          game_duration_minutes: number | null
+          game_session_id: string
+          id: string
+          pipeline_stage_reached: number
+          turns_completed: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          created_at?: string
+          final_score?: number
+          game_duration_minutes?: number | null
+          game_session_id: string
+          id?: string
+          pipeline_stage_reached?: number
+          turns_completed?: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          created_at?: string
+          final_score?: number
+          game_duration_minutes?: number | null
+          game_session_id?: string
+          id?: string
+          pipeline_stage_reached?: number
+          turns_completed?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_history_game_session_id_fkey"
+            columns: ["game_session_id"]
+            isOneToOne: false
+            referencedRelation: "game_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_players: {
         Row: {
           created_at: string
@@ -91,6 +135,36 @@ export type Database = {
           status?: string
           turn_count?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          github_username: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          github_username?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          github_username?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
