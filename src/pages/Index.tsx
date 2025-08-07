@@ -4,7 +4,7 @@ import { GameBoard } from "@/components/game/GameBoard";
 import { GameHistory } from "@/components/game/GameHistory";
 import { WaitingRoom } from "@/components/game/WaitingRoom";
 import { SpectatorView } from "@/components/game/SpectatorView";
-import { AuthButton } from "@/components/auth/AuthButton";
+
 
 interface Player {
   id: string;
@@ -89,12 +89,11 @@ const Index = () => {
   }
 
   return (
-    <div className="relative">
-      <div className="absolute top-4 right-4 z-10">
-        <AuthButton onViewHistory={handleViewHistory} />
-      </div>
-      <GameSetup onStartGame={handleStartGame} onEnterWaitingRoom={handleEnterWaitingRoom} />
-    </div>
+    <GameSetup 
+      onStartGame={handleStartGame} 
+      onEnterWaitingRoom={handleEnterWaitingRoom} 
+      onViewHistory={handleViewHistory}
+    />
   );
 };
 

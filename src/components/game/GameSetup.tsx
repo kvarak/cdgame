@@ -25,6 +25,7 @@ interface Player {
 interface GameSetupProps {
   onStartGame: (players: Player[], gameCode: string, gameSessionId: string) => void;
   onEnterWaitingRoom: (gameSessionId: string, isHost: boolean, playerName: string) => void;
+  onViewHistory?: () => void;
 }
 
 const AVAILABLE_ROLES = [
@@ -47,7 +48,7 @@ const ROLE_COLORS = {
   'Site Reliability Engineer': 'bg-pipeline-monitor text-pipeline-monitor-foreground'
 };
 
-export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) => {
+export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: GameSetupProps) => {
   const [gameMode, setGameMode] = useState<'create' | 'join'>('create');
   const [hostName, setHostName] = useState('');
   const [hostRole, setHostRole] = useState<Player['role']>('Random');
@@ -252,7 +253,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom }: GameSetupProps) =
         {/* Header with Auth Button */}
         <div className="flex justify-between items-center mb-4">
           <div className="flex-1" />
-          <AuthButton />
+          <AuthButton onViewHistory={onViewHistory} />
         </div>
 
         {/* Hero Section */}
