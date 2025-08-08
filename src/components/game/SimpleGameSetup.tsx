@@ -295,19 +295,6 @@ export const SimpleGameSetup = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="host-role">Your Role</Label>
-                <select
-                  id="host-role"
-                  value={hostRole}
-                  onChange={(e) => setHostRole(e.target.value as Player['role'])}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-md"
-                >
-                  {AVAILABLE_ROLES.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
-              </div>
 
               <div className="pt-4">
                 {!user ? (
@@ -365,19 +352,6 @@ export const SimpleGameSetup = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="join-player-role">Your Role</Label>
-                <select
-                  id="join-player-role"
-                  value={joinPlayerRole}
-                  onChange={(e) => setJoinPlayerRole(e.target.value as Player['role'])}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-md"
-                >
-                  {AVAILABLE_ROLES.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
-              </div>
 
               <Button
                 onClick={handleJoinGame}

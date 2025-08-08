@@ -110,22 +110,12 @@ const Index = () => {
       />;
     } else {
       return (
-        <div>
-          <SpectatorView 
-            gameSessionId={gameSessionId}
-            currentPlayerName={currentPlayerName}
-            gameCode={gameCode}
-            onLeaveGame={handleLeaveWaitingRoom}
-          />
-          <GameBoard 
-            players={players} 
-            gameCode={gameCode} 
-            gameSessionId={gameSessionId} 
-            onEndGame={handleEndGame}
-            isHost={false}
-            currentPlayerName={currentPlayerName}
-          />
-        </div>
+        <SpectatorView 
+          gameSessionId={gameSessionId}
+          currentPlayerName={currentPlayerName}
+          gameCode={gameCode}
+          onLeaveGame={handleLeaveWaitingRoom}
+        />
       );
     }
   }
