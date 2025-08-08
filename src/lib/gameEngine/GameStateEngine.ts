@@ -208,7 +208,7 @@ export class GameStateEngine {
   }
 
   async syncToDatabase(): Promise<void> {
-    if (!this.state.isHost || !this.state.gameSessionId) return;
+    if (!this.state.gameSessionId) return;
 
     try {
       const gameState = {

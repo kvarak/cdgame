@@ -81,7 +81,7 @@ export const GameBoardRefactored = ({
 
   // Handle vote submission
   const handleSubmitVote = async (taskId: string) => {
-    taskManager.submitVote(currentPlayerName, taskId);
+    await taskManager.submitVote(currentPlayerName, taskId);
   };
 
   // Handle phase transitions (facilitator only)

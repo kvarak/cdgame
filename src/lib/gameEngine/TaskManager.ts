@@ -44,9 +44,11 @@ export class TaskManager {
     return randomTasks;
   }
 
-  submitVote(playerName: string, taskId: string): void {
+  async submitVote(playerName: string, taskId: string): Promise<void> {
     const state = this.gameEngine.getState();
     const newVotes = { ...state.playerVotes, [playerName]: taskId };
+    
+    console.log('Submitting vote:', { playerName, taskId, newVotes, currentVotes: state.playerVotes });
     
     this.gameEngine.updateVotes(newVotes);
     
@@ -55,10 +57,8 @@ export class TaskManager {
       description: "Your vote has been recorded!",
     });
 
-    // Sync to database if host
-    if (state.isHost) {
-      this.gameEngine.syncToDatabase();
-    }
+    // Always sync to database - both host and non-host players need to update votes
+    await this.gameEngine.syncToDatabase();
   }
 
   processVotingResults(votes: Record<string, string>): { selected: Challenge[], unselected: Challenge[] } {
