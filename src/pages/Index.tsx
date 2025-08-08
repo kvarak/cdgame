@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SimpleGameSetup } from "@/components/game/SimpleGameSetup";
 import { GameBoard } from "@/components/game/GameBoard";
 import { GameHistory } from "@/components/game/GameHistory";
 import { WaitingRoom } from "@/components/game/WaitingRoom";
 import { SpectatorView } from "@/components/game/SpectatorView";
-
+import { useAuth } from "@/hooks/useAuth";
 
 interface Player {
   id: string;
@@ -13,12 +13,37 @@ interface Player {
 }
 
 const Index = () => {
+  const { user, loading: authLoading } = useAuth();
   const [gameState, setGameState] = useState<'setup' | 'waiting' | 'playing' | 'history'>('setup');
   const [players, setPlayers] = useState<Player[]>([]);
   const [gameCode, setGameCode] = useState<string>('');
   const [gameSessionId, setGameSessionId] = useState<string>('');
   const [isHost, setIsHost] = useState<boolean>(false);
   const [currentPlayerName, setCurrentPlayerName] = useState<string>('');
+
+  // Parse URL parameters on mount and when URL changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+    const sessionId = urlParams.get('session');
+    const hostStatus = urlParams.get('host') === 'true';
+    const playerName = urlParams.get('name');
+    const code = urlParams.get('code');
+
+    console.log('📍 URL Params:', { mode, sessionId, hostStatus, playerName, code });
+
+    if (mode === 'waiting' && sessionId && playerName && code) {
+      console.log('🎯 AUTO-ENTERING WAITING ROOM from URL params');
+      setGameSessionId(sessionId);
+      setIsHost(hostStatus);
+      setCurrentPlayerName(decodeURIComponent(playerName));
+      setGameCode(code);
+      setGameState('waiting');
+      
+      // Clean up URL without causing reload
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
 
   const handleStartGame = (gamePlayers: Player[], code: string, sessionId: string) => {
     setPlayers(gamePlayers);
