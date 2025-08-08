@@ -17,8 +17,10 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle,
-  GamepadIcon
+  GamepadIcon,
+  Vote
 } from "lucide-react";
+import { VotingPopup } from "./VotingPopup";
 
 interface Player {
   id: string;
@@ -133,14 +135,15 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
   const { user } = useAuth();
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
-  const [currentTurn, setCurrentTurn] = useState(0);
   const [pipelineStages, setPipelineStages] = useState(PIPELINE_STAGES);
   const [challenges, setChallenges] = useState(SAMPLE_CHALLENGES);
   const [gameScore, setGameScore] = useState(0);
-  const [turnCount, setTurnCount] = useState(1);
+  const [sprintCount, setSprintCount] = useState(1);
   const [gameStartTime] = useState(new Date());
-  const [selectedChallengesThisTurn, setSelectedChallengesThisTurn] = useState<string[]>([]);
+  const [selectedChallenges, setSelectedChallenges] = useState<string[]>([]);
   const [sprintPhase, setSprintPhase] = useState<'planning' | 'execution'>('planning');
+  const [showVotingPopup, setShowVotingPopup] = useState(false);
+  const [playerVotes, setPlayerVotes] = useState<Record<string, {most: string, least: string}>>({});
 
   // Log game start event when component mounts
   useEffect(() => {
@@ -152,20 +155,15 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
     });
   }, []);
 
-  const currentPlayer = players[currentTurn];
   const totalProgress = pipelineStages.reduce((sum, stage) => sum + stage.progress, 0);
   const maxTotalProgress = pipelineStages.reduce((sum, stage) => sum + stage.maxProgress, 0);
   const overallProgress = (totalProgress / maxTotalProgress) * 100;
 
-  const nextTurn = () => {
+  const startSprint = () => {
     if (sprintPhase === 'planning') {
-      // Move to execution phase if we have selected challenges
-      if (selectedChallengesThisTurn.length > 0) {
-        setSprintPhase('execution');
-        toast({
-          title: "Sprint Execution Phase",
-          description: `Working on ${selectedChallengesThisTurn.length} selected challenges`,
-        });
+      if (selectedChallenges.length > 0) {
+        // Show voting popup for all players
+        setShowVotingPopup(true);
       } else {
         toast({
           title: "No Challenges Selected",
@@ -174,27 +172,37 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
         });
       }
     } else {
-      // End of sprint - move to next player's turn
-      const nextTurnIndex = (currentTurn + 1) % players.length;
-      setCurrentTurn(nextTurnIndex);
-      setSelectedChallengesThisTurn([]);
+      // End sprint - start new one
+      setSelectedChallenges([]);
       setSprintPhase('planning');
-      
-      if (nextTurnIndex === 0) {
-        setTurnCount(prev => prev + 1);
-      }
+      setPlayerVotes({});
+      setSprintCount(prev => prev + 1);
       
       toast({
-        title: "New Sprint",
-        description: `${players[nextTurnIndex].name}'s turn to plan sprint`,
+        title: "New Sprint Started",
+        description: `Sprint ${sprintCount + 1} planning phase`,
       });
     }
+  };
+
+  const handleVoteSubmit = (mostImportant: string, leastImportant: string) => {
+    const currentUserId = user?.id || 'anonymous';
+    setPlayerVotes(prev => ({
+      ...prev,
+      [currentUserId]: { most: mostImportant, least: leastImportant }
+    }));
+
+    setSprintPhase('execution');
+    toast({
+      title: "Vote Submitted",
+      description: "Sprint execution phase has begun!",
+    });
   };
 
   const selectChallengeForSprint = (challengeId: string) => {
     if (sprintPhase !== 'planning') return;
     
-    setSelectedChallengesThisTurn(prev => {
+    setSelectedChallenges(prev => {
       if (prev.includes(challengeId)) {
         // Deselect challenge
         return prev.filter(id => id !== challengeId);
@@ -213,7 +221,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
   };
 
   const assignChallenge = (challengeId: string, playerId: string) => {
-    if (sprintPhase !== 'execution' || !selectedChallengesThisTurn.includes(challengeId)) return;
+    if (sprintPhase !== 'execution' || !selectedChallenges.includes(challengeId)) return;
     
     setChallenges(prev => 
       prev.map(challenge => 
@@ -245,7 +253,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
           user_id: user.id,
           game_session_id: gameSessionId,
           final_score: gameScore,
-          turns_completed: turnCount,
+          turns_completed: sprintCount,
           pipeline_stage_reached: completedStages,
           game_duration_minutes: gameDuration,
         });
@@ -268,7 +276,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
     await logGameEvent('end', gameSessionId, {
       gameCode,
       finalScore: gameScore,
-      turnsCompleted: turnCount,
+      turnsCompleted: sprintCount,
       gameDurationMinutes: Math.round((new Date().getTime() - gameStartTime.getTime()) / (1000 * 60)),
       totalPlayers: players.length,
       pipelineProgress: pipelineStages.reduce((sum, stage) => sum + stage.progress, 0)
@@ -294,7 +302,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
               </Badge>
               <Badge variant="outline" className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
-                Turn {turnCount}
+                Sprint {sprintCount}
               </Badge>
               <Badge variant="outline" className="flex items-center gap-1">
                 <Target className="w-4 h-4" />
@@ -307,25 +315,30 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
           </Button>
         </div>
 
-        {/* Current Player */}
+        {/* Sprint Status */}
         <Card className="mb-6 bg-gradient-card shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              Current Turn: {currentPlayer.name}
+              <Vote className="w-5 h-5 text-primary" />
+              Team Sprint - All Players Collaborate
             </CardTitle>
             <CardDescription>
-              Playing as {currentPlayer.role} • {sprintPhase === 'planning' ? 'Sprint Planning' : 'Sprint Execution'}
+              {sprintPhase === 'planning' ? 'Sprint Planning - Select challenges together' : 'Sprint Execution - Work on selected challenges'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
-              <Button onClick={nextTurn} className="bg-gradient-primary">
+              <Button onClick={startSprint} className="bg-gradient-primary">
                 {sprintPhase === 'planning' ? 'Start Sprint' : 'End Sprint'}
               </Button>
               {sprintPhase === 'planning' && (
                 <Badge variant="outline">
-                  {selectedChallengesThisTurn.length}/3 challenges selected
+                  {selectedChallenges.length}/3 challenges selected
+                </Badge>
+              )}
+              {sprintPhase === 'execution' && (
+                <Badge variant="secondary">
+                  Sprint in progress - all players working simultaneously
                 </Badge>
               )}
             </div>
@@ -407,10 +420,10 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
               <CardContent>
                 <div className="space-y-4">
                   {challenges
-                    .filter(challenge => sprintPhase === 'planning' || selectedChallengesThisTurn.includes(challenge.id))
+                    .filter(challenge => sprintPhase === 'planning' || selectedChallenges.includes(challenge.id))
                     .map((challenge) => {
-                      const isSelected = selectedChallengesThisTurn.includes(challenge.id);
-                      const canSelect = sprintPhase === 'planning' && selectedChallengesThisTurn.length < 3;
+                      const isSelected = selectedChallenges.includes(challenge.id);
+                      const canSelect = sprintPhase === 'planning' && selectedChallenges.length < 3;
                       
                       return (
                         <Card 
@@ -467,7 +480,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
                                       variant="outline"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        assignChallenge(challenge.id, currentPlayer.id);
+                                        assignChallenge(challenge.id, players[0].id);
                                       }}
                                     >
                                       Take Challenge
@@ -506,22 +519,13 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
                   {players.map((player, index) => (
                     <div
                       key={player.id}
-                      className={`p-3 rounded-lg border ${
-                        index === currentTurn 
-                          ? 'border-primary shadow-glow bg-primary/5' 
-                          : 'border-border/50'
-                      }`}
+                      className="p-3 rounded-lg border border-border/50"
                     >
                       <div className="flex items-center justify-between">
                         <div>
                           <h4 className="font-semibold">{player.name}</h4>
                           <p className="text-sm text-muted-foreground">{player.role}</p>
                         </div>
-                        {index === currentTurn && (
-                          <Badge className="bg-primary text-primary-foreground animate-pulse-glow">
-                            Active
-                          </Badge>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -530,6 +534,14 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
             </Card>
           </div>
         </div>
+
+        {/* Voting Popup */}
+        <VotingPopup
+          isOpen={showVotingPopup}
+          challenges={challenges.filter(c => selectedChallenges.includes(c.id))}
+          onVoteSubmit={handleVoteSubmit}
+          onClose={() => setShowVotingPopup(false)}
+        />
       </div>
     </div>
   );
