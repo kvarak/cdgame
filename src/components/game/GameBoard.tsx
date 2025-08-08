@@ -377,19 +377,32 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
 
   // Handle voting completion when all votes are in
   const completeVoting = async (allVotes: {[playerName: string]: string}) => {
+    console.log('=== COMPLETE VOTING DEBUG ===');
+    console.log('allVotes:', allVotes);
+    console.log('currentTasks:', currentTasks);
+    
     // Count votes for each task
     const voteCount: {[taskId: string]: number} = {};
     Object.values(allVotes).forEach(taskId => {
       voteCount[taskId] = (voteCount[taskId] || 0) + 1;
     });
     
+    console.log('voteCount:', voteCount);
+    
     // Find the most voted task (or random if tie)
     const maxVotes = Math.max(...Object.values(voteCount));
     const topTasks = Object.keys(voteCount).filter(taskId => voteCount[taskId] === maxVotes);
     const selectedTaskId = topTasks[Math.floor(Math.random() * topTasks.length)];
     
+    console.log('maxVotes:', maxVotes);
+    console.log('topTasks:', topTasks);
+    console.log('selectedTaskId:', selectedTaskId);
+    
     const selected = currentTasks.filter(task => task.id === selectedTaskId);
     const unselected = currentTasks.filter(task => task.id !== selectedTaskId);
+    
+    console.log('selected tasks:', selected);
+    console.log('unselected tasks:', unselected);
     
     setSelectedTasks(selected);
     setUnselectedTasks(unselected);
@@ -402,6 +415,8 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
       unselected_tasks: unselected,
       current_tasks: currentTasks
     });
+    
+    console.log('=== END COMPLETE VOTING DEBUG ===');
   };
 
   // Start events phase
