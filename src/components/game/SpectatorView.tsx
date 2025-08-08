@@ -58,7 +58,7 @@ export const SpectatorView = ({
             <CardContent className="space-y-4">
               <div className="bg-primary/10 border border-primary/20 rounded-lg p-6">
                 <h3 className="text-xl font-semibold mb-4 text-center">
-                  King of the Castle Mode
+                  Secret Voting & Game Interactions
                 </h3>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="bg-card p-4 rounded-lg border">
@@ -84,7 +84,7 @@ export const SpectatorView = ({
                 
                 <div className="mt-6 p-4 bg-muted/50 rounded-lg">
                   <p className="text-sm text-center text-muted-foreground">
-                    <strong>How it works:</strong> All players vote simultaneously on challenge priorities. 
+                    <strong>How it works:</strong> Team members vote simultaneously on challenge priorities. 
                     The collective votes influence game events and outcomes in real-time.
                   </p>
                 </div>

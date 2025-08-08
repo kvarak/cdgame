@@ -100,15 +100,32 @@ const Index = () => {
   if (gameState === 'playing') {
     // Host gets full game control, others get spectator view
     if (isHost) {
-      return <GameBoard players={players} gameCode={gameCode} gameSessionId={gameSessionId} onEndGame={handleEndGame} />;
+      return <GameBoard 
+        players={players} 
+        gameCode={gameCode} 
+        gameSessionId={gameSessionId} 
+        onEndGame={handleEndGame}
+        isHost={true}
+        currentPlayerName={currentPlayerName}
+      />;
     } else {
       return (
-        <SpectatorView 
-          gameSessionId={gameSessionId}
-          currentPlayerName={currentPlayerName}
-          gameCode={gameCode}
-          onLeaveGame={handleLeaveWaitingRoom}
-        />
+        <div>
+          <SpectatorView 
+            gameSessionId={gameSessionId}
+            currentPlayerName={currentPlayerName}
+            gameCode={gameCode}
+            onLeaveGame={handleLeaveWaitingRoom}
+          />
+          <GameBoard 
+            players={players} 
+            gameCode={gameCode} 
+            gameSessionId={gameSessionId} 
+            onEndGame={handleEndGame}
+            isHost={false}
+            currentPlayerName={currentPlayerName}
+          />
+        </div>
       );
     }
   }

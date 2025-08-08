@@ -33,6 +33,8 @@ interface GameBoardProps {
   gameCode: string;
   gameSessionId: string;
   onEndGame: () => void;
+  isHost?: boolean;
+  currentPlayerName?: string;
 }
 
 interface PipelineStage {
@@ -131,7 +133,7 @@ const CHALLENGE_COLORS = {
   feature: 'bg-success text-success-foreground'
 };
 
-export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameBoardProps) => {
+export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost = true, currentPlayerName }: GameBoardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
@@ -144,6 +146,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
   const [sprintPhase, setSprintPhase] = useState<'planning' | 'execution'>('planning');
   const [showVotingPopup, setShowVotingPopup] = useState(false);
   const [playerVotes, setPlayerVotes] = useState<Record<string, {most: string, least: string}>>({});
+  const [waitingForVotes, setWaitingForVotes] = useState(false);
 
   // Log game start event when component mounts
   useEffect(() => {
@@ -162,8 +165,17 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
   const startSprint = () => {
     if (sprintPhase === 'planning') {
       if (selectedChallenges.length > 0) {
-        // Show voting popup for all players
-        setShowVotingPopup(true);
+        if (isHost) {
+          // Host waits for joiners to vote
+          setWaitingForVotes(true);
+          toast({
+            title: "Waiting for Team Votes",
+            description: "Team members are voting on challenge priorities",
+          });
+        } else {
+          // Joiners show voting popup
+          setShowVotingPopup(true);
+        }
       } else {
         toast({
           title: "No Challenges Selected",
@@ -175,6 +187,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
       // End sprint - start new one
       setSelectedChallenges([]);
       setSprintPhase('planning');
+      setWaitingForVotes(false);
       setPlayerVotes({});
       setSprintCount(prev => prev + 1);
       
@@ -186,17 +199,29 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
   };
 
   const handleVoteSubmit = (mostImportant: string, leastImportant: string) => {
-    const currentUserId = user?.id || 'anonymous';
+    const currentUserId = user?.id || currentPlayerName || 'anonymous';
     setPlayerVotes(prev => ({
       ...prev,
       [currentUserId]: { most: mostImportant, least: leastImportant }
     }));
 
-    setSprintPhase('execution');
-    toast({
-      title: "Vote Submitted",
-      description: "Sprint execution phase has begun!",
-    });
+    // Check if all joiners have voted (exclude host)
+    const joiners = players.filter(p => !p.name.includes('Host')); // Simple host detection
+    const totalVotes = Object.keys(playerVotes).length + 1; // +1 for current vote
+    
+    if (totalVotes >= joiners.length) {
+      setSprintPhase('execution');
+      setWaitingForVotes(false);
+      toast({
+        title: "All Votes Received",
+        description: "Sprint execution phase has begun!",
+      });
+    } else {
+      toast({
+        title: "Vote Submitted",
+        description: `Waiting for ${joiners.length - totalVotes} more votes`,
+      });
+    }
   };
 
   const selectChallengeForSprint = (challengeId: string) => {
@@ -320,28 +345,51 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Vote className="w-5 h-5 text-primary" />
-              Team Sprint - All Players Collaborate
+              Team Sprint - {isHost ? 'Host View' : 'Team Member'}
             </CardTitle>
             <CardDescription>
-              {sprintPhase === 'planning' ? 'Sprint Planning - Select challenges together' : 'Sprint Execution - Work on selected challenges'}
+              {waitingForVotes 
+                ? 'Waiting for team members to vote on challenge priorities...'
+                : sprintPhase === 'planning' 
+                  ? 'Sprint Planning - Select challenges together' 
+                  : 'Sprint Execution - Work on selected challenges'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-4">
-              <Button onClick={startSprint} className="bg-gradient-primary">
-                {sprintPhase === 'planning' ? 'Start Sprint' : 'End Sprint'}
-              </Button>
-              {sprintPhase === 'planning' && (
-                <Badge variant="outline">
-                  {selectedChallenges.length}/3 challenges selected
-                </Badge>
-              )}
-              {sprintPhase === 'execution' && (
-                <Badge variant="secondary">
-                  Sprint in progress - all players working simultaneously
-                </Badge>
-              )}
-            </div>
+            {waitingForVotes ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Team Voting Progress</span>
+                  <span className="text-sm text-muted-foreground">
+                    {Object.keys(playerVotes).length}/{players.filter(p => !p.name.includes('Host')).length} votes
+                  </span>
+                </div>
+                <Progress 
+                  value={(Object.keys(playerVotes).length / Math.max(players.filter(p => !p.name.includes('Host')).length, 1)) * 100} 
+                  className="h-3" 
+                />
+                <p className="text-sm text-muted-foreground">
+                  Team members are secretly voting on challenge priorities...
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                <Button onClick={startSprint} className="bg-gradient-primary">
+                  {sprintPhase === 'planning' ? 'Start Sprint' : 'End Sprint'}
+                </Button>
+                {sprintPhase === 'planning' && (
+                  <Badge variant="outline">
+                    {selectedChallenges.length}/3 challenges selected
+                  </Badge>
+                )}
+                {sprintPhase === 'execution' && (
+                  <Badge variant="secondary">
+                    Sprint in progress - all players working simultaneously
+                  </Badge>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -535,13 +583,15 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
           </div>
         </div>
 
-        {/* Voting Popup */}
-        <VotingPopup
-          isOpen={showVotingPopup}
-          challenges={challenges.filter(c => selectedChallenges.includes(c.id))}
-          onVoteSubmit={handleVoteSubmit}
-          onClose={() => setShowVotingPopup(false)}
-        />
+        {/* Voting Popup - Only for joiners */}
+        {!isHost && (
+          <VotingPopup
+            isOpen={showVotingPopup}
+            challenges={challenges.filter(c => selectedChallenges.includes(c.id))}
+            onVoteSubmit={handleVoteSubmit}
+            onClose={() => setShowVotingPopup(false)}
+          />
+        )}
       </div>
     </div>
   );
