@@ -222,13 +222,16 @@ export const SimpleGameSetup = () => {
       <div className="container mx-auto max-w-4xl">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
-          <Button
-            variant="outline"
-            onClick={() => setGameMode('history')}
-            className="text-sm"
-          >
-            View Game History
-          </Button>
+          {user && (
+            <Button
+              variant="outline"
+              onClick={() => setGameMode('history')}
+              className="text-sm"
+            >
+              View Game History
+            </Button>
+          )}
+          {!user && <div />}
           <AuthButton />
         </div>
 

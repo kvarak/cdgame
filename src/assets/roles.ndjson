@@ -1,0 +1,6 @@
+{"id": "developer", "name": "Developer", "strengths": ["architecture", "performance", "integration"]}
+{"id": "qa_engineer", "name": "QA Engineer", "strengths": ["testing", "automation", "validation"]}
+{"id": "devops_engineer", "name": "DevOps Engineer", "strengths": ["deployment", "monitoring", "infrastructure"]}
+{"id": "product_owner", "name": "Product Owner", "strengths": ["requirements", "prioritization", "stakeholder"]}
+{"id": "security_engineer", "name": "Security Engineer", "strengths": ["security", "compliance", "vulnerability"]}
+{"id": "site_reliability_engineer", "name": "Site Reliability Engineer", "strengths": ["reliability", "scalability", "incident"]}

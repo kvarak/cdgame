@@ -148,6 +148,36 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   const [playerVotes, setPlayerVotes] = useState<Record<string, {most: string, least: string}>>({});
   const [waitingForVotes, setWaitingForVotes] = useState(false);
 
+  // Listen for sprint state changes and vote updates
+  useEffect(() => {
+    if (!gameSessionId) return;
+
+    const channel = supabase
+      .channel('game-session-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'game_sessions',
+          filter: `id=eq.${gameSessionId}`
+        },
+        (payload: any) => {
+          if (payload.new && payload.new.current_sprint_state) {
+            const state = payload.new.current_sprint_state;
+            if (state.votes) {
+              setPlayerVotes(state.votes);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [gameSessionId]);
+
   // Log game start event when component mounts
   useEffect(() => {
     logGameEvent('start', gameSessionId, {
