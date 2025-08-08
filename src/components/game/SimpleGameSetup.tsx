@@ -73,22 +73,8 @@ export const SimpleGameSetup = () => {
         finalHostRole
       });
 
-      // Test database connection first
-      console.log('🔌 Testing database connection...');
-      const { data: testData, error: testError } = await supabase
-        .from('game_sessions')
-        .select('count')
-        .limit(1);
-      
-      if (testError) {
-        console.error('❌ Database connection test failed:', testError);
-        throw new Error(`Database connection failed: ${testError.message}`);
-      }
-      
-      console.log('✅ Database connection test passed');
-
-      // Insert game session
-      console.log('📝 Inserting game session...');
+      // Skip database connection test - go straight to insert
+      console.log('📝 Inserting game session directly...');
       const { data: gameSession, error: sessionError } = await supabase
         .from('game_sessions')
         .insert({
