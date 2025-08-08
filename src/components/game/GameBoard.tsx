@@ -243,13 +243,15 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
               // Debug info for vote completion
               console.log('Vote completion check:');
               console.log('- isHost:', isHost);
-              console.log('- currentPhase:', currentPhase);
+              console.log('- currentPhase from state:', state.phase);
+              console.log('- local currentPhase:', currentPhase);
               console.log('- votes count:', Object.keys(state.player_votes).length);
               console.log('- teamMembers count:', teamMembers.length);
               console.log('- teamMembers:', teamMembers);
               
               // Check if voting should complete (only facilitator handles this)
-              if (isHost && currentPhase === 'voting' && 
+              // Use the phase from the database state, not local state
+              if (isHost && state.phase === 'voting' && 
                   Object.keys(state.player_votes).length === teamMembers.length &&
                   Object.keys(state.player_votes).length > 0) {
                 console.log('All votes received, completing voting...');
