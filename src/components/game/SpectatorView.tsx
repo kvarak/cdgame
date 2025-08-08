@@ -45,8 +45,8 @@ export const SpectatorView = ({
     const loadGameData = async () => {
       try {
         const [rolesResponse, tasksResponse] = await Promise.all([
-          fetch('/src/assets/roles.ndjson'),
-          fetch('/src/assets/tasks.ndjson')
+          fetch('/roles.ndjson'),
+          fetch('/tasks.ndjson')
         ]);
         
         const rolesText = await rolesResponse.text();
