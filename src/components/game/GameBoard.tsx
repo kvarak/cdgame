@@ -863,6 +863,15 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
                     </div>
                   )}
 
+                  
+                  {/* Debug Info for Execution Button */}
+                  <div className="mb-4 p-2 bg-muted/20 rounded text-xs">
+                    <p>Phase: {currentPhase}</p>
+                    <p>Selected Tasks: {selectedTasks.length}</p>
+                    <p>Selected Task IDs: {selectedTasks.map(t => t.id).join(', ')}</p>
+                    <p>Button Should Show: {(currentPhase === 'execution' && selectedTasks.length > 0).toString()}</p>
+                  </div>
+
                   {currentPhase === 'execution' && selectedTasks.length > 0 && (
                     <Button 
                       onClick={executeSelectedTasks}
@@ -871,6 +880,13 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
                     >
                       Process Task Results
                     </Button>
+                  )}
+
+                  {currentPhase === 'execution' && selectedTasks.length === 0 && (
+                    <div className="text-center p-4 bg-warning/10 border border-warning/20 rounded">
+                      <p className="text-sm text-warning">Execution phase reached but no tasks selected!</p>
+                      <p className="text-xs text-muted-foreground mt-1">This is a bug - check vote completion logic</p>
+                    </div>
                   )}
 
                   {currentPhase === 'end_turn' && (
