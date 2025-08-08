@@ -31,10 +31,9 @@ export const SpectatorView = ({
   const { gameSession, players } = useGameRoom(gameSessionId);
   const [hasVoted, setHasVoted] = useState(false);
   const [sprintState, setSprintState] = useState<any>(null);
-  const [showVotingPopup, setShowVotingPopup] = useState(false);
+  const [isVotingPopupOpen, setIsVotingPopupOpen] = useState(false);
 
   const hostPlayer = players.find(p => p.isHost);
-  const currentPlayer = players.find(p => p.name === currentPlayerName);
 
   // Listen for sprint state changes
   useEffect(() => {
@@ -45,7 +44,7 @@ export const SpectatorView = ({
     
     // Show voting popup when voting becomes active
     if (state.voting_active && !hasVoted) {
-      setShowVotingPopup(true);
+      setIsVotingPopupOpen(true);
     }
   }, [(gameSession as any)?.current_sprint_state, hasVoted]);
 
@@ -71,7 +70,7 @@ export const SpectatorView = ({
             
             // Show voting popup when voting becomes active
             if (state.voting_active && !hasVoted) {
-              setShowVotingPopup(true);
+              setIsVotingPopupOpen(true);
             }
           }
         }
@@ -98,7 +97,7 @@ export const SpectatorView = ({
       }
 
       setHasVoted(true);
-      setShowVotingPopup(false);
+      setIsVotingPopupOpen(false);
     } catch (error) {
       console.error('Error submitting vote:', error);
     }
@@ -157,7 +156,7 @@ export const SpectatorView = ({
                     Vote on which challenges are most and least important for this sprint
                   </p>
                   <Button 
-                    onClick={() => setShowVotingPopup(true)} 
+                    onClick={() => setIsVotingPopupOpen(true)} 
                     className="bg-gradient-primary"
                   >
                     Cast Your Vote
@@ -205,7 +204,7 @@ export const SpectatorView = ({
 
         {/* Voting Popup */}
         <VotingPopup
-          isOpen={showVotingPopup}
+          isOpen={isVotingPopupOpen}
           challenges={sprintState?.selected_challenges?.map((id: string) => {
             // Mock challenges for now - in real app this would come from database
             const mockChallenges = [
@@ -217,7 +216,7 @@ export const SpectatorView = ({
             return mockChallenges.find(c => c.id === id);
           }).filter(Boolean) || []}
           onVoteSubmit={handleVoteSubmit}
-          onClose={() => setShowVotingPopup(false)}
+          onClose={() => setIsVotingPopupOpen(false)}
         />
       </div>
     </div>
