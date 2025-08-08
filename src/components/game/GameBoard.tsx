@@ -19,6 +19,7 @@ import {
   CalendarDays,
   Users,
   Crown,
+  Eye,
 } from "lucide-react";
 import { VotingPopup } from "./VotingPopup";
 
@@ -115,8 +116,9 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
     changeFailureRate: 50
   });
 
-  // Get team members (players with roles)
+  // Get team members (players with roles) and current player
   const teamMembers = players.filter(player => player.role);
+  const currentPlayer = players.find(player => player.name === currentPlayerName);
   const votesReceived = Object.keys(playerVotes).length;
   const totalVoters = teamMembers.length;
 
@@ -670,52 +672,106 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
               </Card>
             )}
 
-            {/* Team Member Status - What they should do */}
+            {/* Team Member View - Show spectator-like interface */}
             {!isHost && (
               <Card className="bg-secondary/10 border-secondary/20">
                 <CardHeader>
                   <CardTitle className="text-lg font-medium flex items-center gap-2">
-                    <Users className="w-5 h-5 text-secondary" />
-                    Team Member Status
+                    <Target className="w-5 h-5 text-primary" />
+                    Secret Voting & Game Interactions
                   </CardTitle>
+                  <CardDescription>
+                    Role: {currentPlayer?.role} • Your part in the team
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {currentPhase === 'start_turn' && (
-                    <div className="text-center">
-                      <p className="text-muted-foreground">Waiting for facilitator to start voting...</p>
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Target className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">Waiting for Turn to Start</h3>
+                      <p className="text-muted-foreground">
+                        The facilitator will start the voting phase shortly
+                      </p>
                     </div>
                   )}
+                  
                   {currentPhase === 'voting' && !hasVoted && teamMembers.some(member => member.name === currentPlayerName) && (
-                    <div className="text-center">
-                      <p className="text-primary font-medium">🗳️ Your vote is needed!</p>
-                      <p className="text-sm text-muted-foreground">Select the most important task to prioritize</p>
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Target className="w-8 h-8 text-primary" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">🗳️ Voting Open!</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Select the most important task to prioritize this turn
+                      </p>
+                      <Button 
+                        onClick={() => setShowVotingPopup(true)}
+                        className="bg-gradient-primary"
+                      >
+                        Cast Your Vote
+                      </Button>
                     </div>
                   )}
+                  
                   {currentPhase === 'voting' && hasVoted && (
-                    <div className="text-center">
-                      <p className="text-success font-medium">✅ Vote submitted!</p>
-                      <p className="text-sm text-muted-foreground">Waiting for other team members...</p>
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-2xl">✓</span>
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">Vote Submitted!</h3>
+                      <p className="text-muted-foreground">
+                        Waiting for other team members to vote...
+                      </p>
                     </div>
                   )}
+                  
                   {currentPhase === 'voting' && !teamMembers.some(member => member.name === currentPlayerName) && (
-                    <div className="text-center">
-                      <p className="text-muted-foreground">Waiting for team voting to complete...</p>
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Eye className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">Spectating</h3>
+                      <p className="text-muted-foreground">
+                        Watching team members vote on priorities
+                      </p>
                     </div>
                   )}
+                  
                   {currentPhase === 'events' && (
-                    <div className="text-center">
-                      <p className="text-muted-foreground">Processing random event...</p>
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Target className="w-8 h-8 text-warning" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">Processing Events</h3>
+                      <p className="text-muted-foreground">
+                        Handling random events that affect the team
+                      </p>
                     </div>
                   )}
+                  
                   {currentPhase === 'execution' && (
-                    <div className="text-center">
-                      <p className="text-primary font-medium">⚙️ Working on selected tasks</p>
-                      <p className="text-sm text-muted-foreground">Complete your assigned work</p>
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Target className="w-8 h-8 text-success" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">⚙️ Execution Phase</h3>
+                      <p className="text-muted-foreground">
+                        Team is working on selected priorities
+                      </p>
                     </div>
                   )}
+                  
                   {currentPhase === 'end_turn' && (
-                    <div className="text-center">
-                      <p className="text-muted-foreground">Turn complete. Waiting for next turn...</p>
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Target className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">Turn Complete</h3>
+                      <p className="text-muted-foreground">
+                        Waiting for next turn to begin
+                      </p>
                     </div>
                   )}
                 </CardContent>

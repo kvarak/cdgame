@@ -22,17 +22,24 @@ interface SpectatorViewProps {
   currentPlayerName: string;
   gameCode: string;
   onLeaveGame: () => void;
+  currentPhase?: string;
+  currentTasks?: Challenge[];
+  hasVoted?: boolean;
+  onVoteSubmit?: (taskId: string) => void;
 }
 
 export const SpectatorView = ({ 
   gameSessionId, 
   currentPlayerName, 
   gameCode,
-  onLeaveGame
+  onLeaveGame,
+  currentPhase = 'start_turn',
+  currentTasks = [],
+  hasVoted = false,
+  onVoteSubmit
 }: SpectatorViewProps) => {
   const { gameSession, players } = useGameRoom(gameSessionId);
-  const [hasVoted, setHasVoted] = useState(false);
-  const [sprintState, setSprintState] = useState<any>(null);
+  const [showVotingPopup, setShowVotingPopup] = useState(false);
   const [currentPlayerRole, setCurrentPlayerRole] = useState<string>('');
   const [allChallenges, setAllChallenges] = useState<Challenge[]>([]);
   const [playerStrengths, setPlayerStrengths] = useState<string[]>([]);
@@ -73,62 +80,19 @@ export const SpectatorView = ({
     loadGameData();
   }, [currentPlayer]);
 
-  // Listen for sprint state changes
+  // Show voting popup when voting phase starts and player hasn't voted
   useEffect(() => {
-    if (!(gameSession as any)?.current_sprint_state) return;
-    
-    const state = (gameSession as any).current_sprint_state;
-    setSprintState(state);
-    
-  }, [(gameSession as any)?.current_sprint_state, hasVoted]);
+    if (currentPhase === 'voting' && !hasVoted && currentTasks.length > 0 && currentPlayer?.role) {
+      setShowVotingPopup(true);
+    } else {
+      setShowVotingPopup(false);
+    }
+  }, [currentPhase, hasVoted, currentTasks.length, currentPlayer?.role]);
 
-  // Real-time subscription to game session changes
-  useEffect(() => {
-    if (!gameSessionId) return;
-
-    const channel = supabase
-      .channel('game-session-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'game_sessions',
-          filter: `id=eq.${gameSessionId}`
-        },
-        (payload) => {
-          console.log('Game session updated:', payload.new);
-          if (payload.new.current_sprint_state) {
-            const state = payload.new.current_sprint_state;
-            setSprintState(state);
-            
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [gameSessionId, hasVoted]);
-
-  const handleVoteSubmit = async (mostImportant: string, leastImportant: string) => {
-    try {
-      const { error } = await supabase.rpc('submit_player_vote', {
-        p_session_id: gameSessionId,
-        p_player_name: currentPlayerName,
-        p_most_important: mostImportant,
-        p_least_important: leastImportant
-      });
-
-      if (error) {
-        console.error('Error submitting vote:', error);
-        return;
-      }
-
-      setHasVoted(true);
-    } catch (error) {
-      console.error('Error submitting vote:', error);
+  const handleVoteSubmit = (taskId: string) => {
+    if (onVoteSubmit) {
+      onVoteSubmit(taskId);
+      setShowVotingPopup(false);
     }
   };
 
@@ -167,82 +131,92 @@ export const SpectatorView = ({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {sprintState?.voting_active ? (
-              hasVoted ? (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">✓</span>
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">Vote Submitted</h3>
-                  <p className="text-muted-foreground">
-                    Waiting for other players to vote...
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <h3 className="text-lg font-semibold mb-2">Next Priorities Voting</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Vote on which challenges are most and least important for next priorities
-                    </p>
-                  </div>
-                  
-                  {/* Inline Voting Interface */}
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Available Challenges:</h4>
-                    {sprintState.selected_challenges?.map((challengeId: string) => {
-                      const challenge = allChallenges.find(c => c.id === challengeId);
-                      if (!challenge) return null;
-                      
-                      const isRecommended = challenge.required_strengths?.some(strength => 
-                        playerStrengths.includes(strength)
-                      ) || challenge.preferred_strengths?.some(strength => 
-                        playerStrengths.includes(strength)
-                      );
-                      
-                      return (
-                        <div key={challengeId} className={`p-3 border rounded-lg ${isRecommended ? 'border-primary bg-primary/5' : ''}`}>
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h5 className="font-medium">{challenge.title}</h5>
-                              <p className="text-sm text-muted-foreground mt-1">{challenge.description}</p>
-                              {isRecommended && (
-                                <Badge variant="outline" className="mt-2 text-primary border-primary">
-                                  Good match for your strengths
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    
-                    <div className="flex gap-2 pt-4">
-                      <Button 
-                        onClick={() => {
-                          // Simple voting - vote for first challenge as most important
-                          const firstChallenge = sprintState.selected_challenges?.[0];
-                          const lastChallenge = sprintState.selected_challenges?.[sprintState.selected_challenges.length - 1];
-                          if (firstChallenge && lastChallenge) {
-                            handleVoteSubmit(firstChallenge, lastChallenge);
-                          }
-                        }}
-                        className="bg-gradient-primary flex-1"
-                      >
-                        Submit Vote
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )
-            ) : (
+            {currentPhase === 'start_turn' && (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Target className="w-8 h-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Waiting for Priority Planning</h3>
+                <h3 className="text-lg font-semibold mb-2">Waiting for Turn to Start</h3>
                 <p className="text-muted-foreground">
-                  The host is selecting challenges for the next priorities
+                  The facilitator will start the voting phase shortly
+                </p>
+              </div>
+            )}
+            
+            {currentPhase === 'voting' && !hasVoted && currentPlayer?.role && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Target className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">🗳️ Voting Open!</h3>
+                <p className="text-muted-foreground mb-4">
+                  Select the most important task to prioritize this turn
+                </p>
+                <Button 
+                  onClick={() => setShowVotingPopup(true)}
+                  className="bg-gradient-primary"
+                >
+                  Cast Your Vote
+                </Button>
+              </div>
+            )}
+            
+            {currentPhase === 'voting' && hasVoted && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">✓</span>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Vote Submitted!</h3>
+                <p className="text-muted-foreground">
+                  Waiting for other team members to vote...
+                </p>
+              </div>
+            )}
+            
+            {currentPhase === 'voting' && !currentPlayer?.role && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Eye className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Spectating</h3>
+                <p className="text-muted-foreground">
+                  Watching team members vote on priorities
+                </p>
+              </div>
+            )}
+            
+            {currentPhase === 'events' && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Target className="w-8 h-8 text-warning" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Processing Events</h3>
+                <p className="text-muted-foreground">
+                  Handling random events that affect the team
+                </p>
+              </div>
+            )}
+            
+            {currentPhase === 'execution' && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Target className="w-8 h-8 text-success" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">⚙️ Execution Phase</h3>
+                <p className="text-muted-foreground">
+                  Team is working on selected priorities
+                </p>
+              </div>
+            )}
+            
+            {currentPhase === 'end_turn' && (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Target className="w-8 h-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Turn Complete</h3>
+                <p className="text-muted-foreground">
+                  Waiting for next turn to begin
                 </p>
               </div>
             )}
@@ -274,6 +248,12 @@ export const SpectatorView = ({
           </CardContent>
         </Card>
 
+        <VotingPopup
+          isOpen={showVotingPopup}
+          onClose={() => setShowVotingPopup(false)}
+          challenges={currentTasks}
+          onVoteSubmit={handleVoteSubmit}
+        />
       </div>
     </div>
   );

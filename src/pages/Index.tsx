@@ -164,26 +164,16 @@ const Index = () => {
   }
 
   if (gameState === 'playing') {
-    // Host gets full game control, others get spectator view
-    if (isHost) {
-      return <GameBoard 
-        players={players} 
-        gameCode={gameCode} 
-        gameSessionId={gameSessionId} 
-        onEndGame={handleEndGame}
-        isHost={true}
-        currentPlayerName={currentPlayerName}
-      />;
-    } else {
-      return (
-        <SpectatorView 
-          gameSessionId={gameSessionId}
-          currentPlayerName={currentPlayerName}
-          gameCode={gameCode}
-          onLeaveGame={handleLeaveWaitingRoom}
-        />
-      );
-    }
+    // Both host and team members use the same GameBoard component
+    // The GameBoard will handle different views based on isHost prop
+    return <GameBoard 
+      players={players} 
+      gameCode={gameCode} 
+      gameSessionId={gameSessionId} 
+      onEndGame={handleEndGame}
+      isHost={isHost}
+      currentPlayerName={currentPlayerName}
+    />;
   }
 
   return <SimpleGameSetup />;
