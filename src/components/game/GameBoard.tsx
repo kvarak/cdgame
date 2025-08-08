@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -13,12 +12,11 @@ import {
   AlertTriangle,
   CheckCircle,
   GamepadIcon,
-  TrendingUp,
-  TrendingDown,
+  DollarSign,
   Shield,
   Zap,
-  DollarSign,
-  Star
+  Star,
+  CalendarDays,
 } from "lucide-react";
 import { VotingPopup } from "./VotingPopup";
 
@@ -47,6 +45,24 @@ interface Challenge {
   preferred_strengths?: string[];
 }
 
+interface GameEvent {
+  id: string;
+  name: string;
+  description: string;
+  effect: string;
+  severity: number;
+  duration: number;
+}
+
+interface TaskConsequence {
+  type: 'bug' | 'feature' | 'performance' | 'security';
+  description: string;
+  impact: string;
+}
+
+// Game flow phases: start_turn -> voting -> events -> execution -> end_turn
+type GamePhase = 'start_turn' | 'voting' | 'events' | 'execution' | 'end_turn';
+
 const CHALLENGE_COLORS = {
   bug: 'bg-error text-error-foreground',
   security: 'bg-warning text-warning-foreground',
@@ -58,23 +74,36 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   const { user } = useAuth();
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
-  const [loadedChallenges, setLoadedChallenges] = useState<Challenge[]>([]);
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [currentChallenges, setCurrentChallenges] = useState<Challenge[]>([]);
+
+  // Game state
+  const [currentPhase, setCurrentPhase] = useState<GamePhase>('start_turn');
   const [turnNumber, setTurnNumber] = useState(1);
   const [gameStartTime] = useState(new Date());
+
+  // Challenges and events
+  const [availableChallenges, setAvailableChallenges] = useState<Challenge[]>([]);
+  const [currentTasks, setCurrentTasks] = useState<Challenge[]>([]);
+  const [selectedTasks, setSelectedTasks] = useState<Challenge[]>([]);
+  const [unselectedTasks, setUnselectedTasks] = useState<Challenge[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<string[]>([]);
+  const [pendingTasks, setPendingTasks] = useState<Challenge[]>([]);
+
+  // Events
+  const [availableEvents, setAvailableEvents] = useState<GameEvent[]>([]);
+  const [currentEvent, setCurrentEvent] = useState<GameEvent | null>(null);
+  const [activeConsequences, setActiveConsequences] = useState<TaskConsequence[]>([]);
+
+  // UI state
   const [showVotingPopup, setShowVotingPopup] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState<'planning' | 'voting' | 'execution' | 'complete'>('planning');
-  const [votes, setVotes] = useState<Record<string, { most_important: string; least_important: string }>>({});
-  const [votingResults, setVotingResults] = useState<{ challenge: Challenge; votes: number }[]>([]);
-  const [selectedChallenges, setSelectedChallenges] = useState<Challenge[]>([]);
-  const [completedChallenges, setCompletedChallenges] = useState<string[]>([]);
+
+  // Metrics
   const [businessMetrics, setBusinessMetrics] = useState({
-    income: 100,
-    securityRisk: 0,
+    businessIncome: 100,
+    securityScore: 100,
     performanceScore: 100,
     reputation: 100
   });
+
   const [devOpsMetrics, setDevOpsMetrics] = useState({
     deploymentFrequency: 50,
     leadTime: 50,
@@ -82,162 +111,278 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
     changeFailureRate: 50
   });
 
-  // Load challenges from tasks.ndjson
+  // Load game data
   useEffect(() => {
     const loadChallenges = async () => {
       try {
         const response = await fetch('/tasks.ndjson');
         const text = await response.text();
         const tasks = text.trim().split('\n').map(line => JSON.parse(line));
-        setLoadedChallenges(tasks);
+        setAvailableChallenges(tasks);
       } catch (error) {
         console.error('Error loading challenges:', error);
-        setLoadedChallenges([]);
       }
     };
-    loadChallenges();
-  }, []);
-  
-  // Update challenges when loaded challenges change
-  useEffect(() => {
-    if (loadedChallenges.length > 0) {
-      setChallenges(loadedChallenges);
-    }
-  }, [loadedChallenges]);
 
-  const handleStartVoting = () => {
-    // Show only 5 random challenges for voting
-    const availableChallenges = challenges.filter(challenge => 
-      !completedChallenges.includes(challenge.id)
-    );
-    const randomChallenges = availableChallenges
-      .sort(() => 0.5 - Math.random())
+    const loadEvents = async () => {
+      try {
+        const response = await fetch('/events.ndjson');
+        const text = await response.text();
+        const events = text.trim().split('\n').map(line => JSON.parse(line));
+        setAvailableEvents(events);
+      } catch (error) {
+        console.error('Failed to load events:', error);
+      }
+    };
+
+    loadChallenges();
+    loadEvents();
+  }, []);
+
+  // Start voting phase
+  const startVoting = () => {
+    setCurrentPhase('voting');
+    
+    // Generate 5 random tasks (including pending ones)
+    const allAvailableTasks = [...pendingTasks, ...availableChallenges.filter(c => !pendingTasks.some(p => p.id === c.id))];
+    const randomTasks = allAvailableTasks
+      .sort(() => Math.random() - 0.5)
       .slice(0, 5);
     
-    setCurrentChallenges(randomChallenges);
+    setCurrentTasks(randomTasks);
     setShowVotingPopup(true);
-    setCurrentPhase('voting');
-    toast({
-      title: "Turn Started", 
-      description: "Select priorities for this turn",
-    });
   };
 
-  const handleVotingComplete = (results: { challenge: Challenge; votes: number }[]) => {
-    setVotingResults(results);
-    setCurrentPhase('execution');
+  // Handle voting completion
+  const completeVoting = (selectedTaskIds: string[]) => {
     setShowVotingPopup(false);
     
-    // Select top challenges based on votes
-    const sortedResults = results.sort((a, b) => b.votes - a.votes);
-    const topChallenges = sortedResults.slice(0, Math.min(3, sortedResults.length));
-    setSelectedChallenges(topChallenges.map(r => r.challenge));
+    // Update selected tasks based on voting results
+    const selected = currentTasks.filter(task => selectedTaskIds.includes(task.id));
+    const unselected = currentTasks.filter(task => !selectedTaskIds.includes(task.id));
     
-    // Handle consequences for unselected challenges
-    handleUnselectedChallenges(currentChallenges, topChallenges.map(r => r.challenge));
+    setSelectedTasks(selected);
+    setUnselectedTasks(unselected);
     
-    toast({
-      title: "Turn Priorities Set",
-      description: `Selected ${topChallenges.length} priorities for execution`,
-    });
+    // Move to events phase
+    startEvents();
   };
 
-  const handleUnselectedChallenges = (allChallenges: Challenge[], selected: Challenge[]) => {
-    const unselected = allChallenges.filter(c => !selected.find(s => s.id === c.id));
-    let newMetrics = { ...businessMetrics };
+  // Start events phase
+  const startEvents = () => {
+    if (availableEvents.length === 0) {
+      // Skip events if none loaded, go to execution
+      setCurrentPhase('execution');
+      return;
+    }
     
-    unselected.forEach(challenge => {
-      switch (challenge.type) {
+    // Select random event
+    const randomEvent = availableEvents[Math.floor(Math.random() * availableEvents.length)];
+    setCurrentEvent(randomEvent);
+    setCurrentPhase('events');
+  };
+
+  // Apply event effects
+  const applyEventEffects = (event: GameEvent) => {
+    switch (event.effect) {
+      case 'reduce_income':
+        setBusinessMetrics(prev => ({
+          ...prev,
+          businessIncome: Math.max(0, prev.businessIncome - event.severity)
+        }));
+        break;
+      case 'increase_income':
+        setBusinessMetrics(prev => ({
+          ...prev,
+          businessIncome: prev.businessIncome + event.severity
+        }));
+        break;
+      case 'reduce_velocity':
+        setDevOpsMetrics(prev => ({
+          ...prev,
+          deploymentFrequency: Math.max(0, prev.deploymentFrequency - event.severity)
+        }));
+        break;
+      case 'block_deployment':
+        // Skip deployment this turn
+        break;
+      case 'emergency_task':
+        // Add emergency task to next turn
+        break;
+    }
+  };
+
+  // Complete events phase
+  const completeEvents = () => {
+    if (currentEvent) {
+      applyEventEffects(currentEvent);
+      toast({
+        title: "Event Applied",
+        description: currentEvent.description,
+        variant: currentEvent.effect.includes('reduce') ? 'destructive' : 'default'
+      });
+    }
+    setCurrentEvent(null);
+    setCurrentPhase('execution');
+  };
+
+  // Apply consequences for unselected tasks
+  const applyTaskConsequences = (unselectedTasks: Challenge[]) => {
+    const newConsequences: TaskConsequence[] = [];
+    const newPendingTasks = [...pendingTasks];
+    
+    unselectedTasks.forEach(task => {
+      switch (task.type) {
         case 'bug':
-          // Bugs come back until fixed - no immediate consequence but they persist
+          // Bugs that aren't fixed come back until fixed
+          if (!newPendingTasks.some(p => p.id === task.id)) {
+            newPendingTasks.push(task);
+          }
+          newConsequences.push({
+            type: 'bug',
+            description: `Bug "${task.title}" remains unfixed`,
+            impact: 'Customer complaints increase, reputation damage'
+          });
           break;
+          
         case 'feature':
-          // 50% chance to come back
-          if (Math.random() > 0.5) {
-            // Remove from challenges pool (won't come back)
-            setChallenges(prev => prev.filter(c => c.id !== challenge.id));
+          // Features have 50% chance to come back
+          if (Math.random() < 0.5) {
+            newPendingTasks.push(task);
+            newConsequences.push({
+              type: 'feature',
+              description: `Feature "${task.title}" still requested by customers`,
+              impact: 'Market opportunity may be lost'
+            });
           }
           break;
+          
         case 'performance':
-          // Reduce income by 1-5%
-          const reduction = Math.floor(Math.random() * 5) + 1;
-          newMetrics.income = Math.max(0, newMetrics.income - reduction);
-          newMetrics.performanceScore = Math.max(0, newMetrics.performanceScore - 10);
+          // Performance issues reduce income
+          const performanceLoss = Math.floor(Math.random() * 5) + 1;
+          setBusinessMetrics(prev => ({
+            ...prev,
+            businessIncome: Math.max(0, prev.businessIncome - performanceLoss)
+          }));
+          newConsequences.push({
+            type: 'performance',
+            description: `Performance issue "${task.title}" causes ${performanceLoss}% income loss`,
+            impact: `Revenue reduced by ${performanceLoss}%`
+          });
           break;
+          
         case 'security':
-          // Increase security risk
-          newMetrics.securityRisk = Math.min(100, newMetrics.securityRisk + 20);
+          // Security issues come back and have 10% chance of hack each turn
+          if (!newPendingTasks.some(p => p.id === task.id)) {
+            newPendingTasks.push(task);
+          }
+          if (Math.random() < 0.1) {
+            const securityLoss = Math.floor(Math.random() * 20) + 10;
+            setBusinessMetrics(prev => ({
+              ...prev,
+              businessIncome: Math.max(0, prev.businessIncome - securityLoss),
+              securityScore: Math.max(0, prev.securityScore - 15)
+            }));
+            newConsequences.push({
+              type: 'security',
+              description: `Security breach! "${task.title}" vulnerability exploited`,
+              impact: `${securityLoss}% income lost, major security incident`
+            });
+          } else {
+            newConsequences.push({
+              type: 'security',
+              description: `Security vulnerability "${task.title}" remains unpatched`,
+              impact: 'High risk of security breach next turn'
+            });
+          }
           break;
       }
     });
     
-    setBusinessMetrics(newMetrics);
+    setPendingTasks(newPendingTasks);
+    setActiveConsequences(prev => [...prev, ...newConsequences]);
   };
 
-  const handleEndTurn = () => {
-    // End of turn consequences
-    let newMetrics = { ...businessMetrics };
+  // Execute selected tasks
+  const executeSelectedTasks = () => {
+    // Clear old consequences and apply new ones
+    setActiveConsequences([]);
+    applyTaskConsequences(unselectedTasks);
     
-    // Security hack chance (10% per unresolved security issue)
-    if (newMetrics.securityRisk > 0 && Math.random() < 0.1 * (newMetrics.securityRisk / 20)) {
-      const hackDamage = Math.floor(Math.random() * 20) + 10;
-      newMetrics.income = Math.max(0, newMetrics.income - hackDamage);
-      newMetrics.reputation = Math.max(0, newMetrics.reputation - 15);
+    // Remove completed tasks from pending tasks
+    const updatedPendingTasks = pendingTasks.filter(task => !selectedTasks.some(selected => selected.id === task.id));
+    setPendingTasks(updatedPendingTasks);
+    
+    setCurrentPhase('end_turn');
+  };
+
+  // Complete a task
+  const handleCompleteTask = (taskId: string) => {
+    setCompletedTasks(prev => [...prev, taskId]);
+    
+    // Improve metrics based on task type
+    const task = selectedTasks.find(t => t.id === taskId);
+    if (task) {
+      switch (task.type) {
+        case 'security':
+          setBusinessMetrics(prev => ({
+            ...prev,
+            securityScore: Math.min(100, prev.securityScore + 15),
+            reputation: Math.min(100, prev.reputation + 5)
+          }));
+          break;
+        case 'performance':
+          setBusinessMetrics(prev => ({
+            ...prev,
+            performanceScore: Math.min(100, prev.performanceScore + 15)
+          }));
+          setDevOpsMetrics(prev => ({
+            ...prev,
+            mttr: Math.min(100, prev.mttr + 10)
+          }));
+          break;
+        case 'bug':
+          setBusinessMetrics(prev => ({
+            ...prev,
+            reputation: Math.min(100, prev.reputation + 5)
+          }));
+          setDevOpsMetrics(prev => ({
+            ...prev,
+            changeFailureRate: Math.min(100, prev.changeFailureRate + 5)
+          }));
+          break;
+        case 'feature':
+          setBusinessMetrics(prev => ({
+            ...prev,
+            businessIncome: Math.min(200, prev.businessIncome + 5)
+          }));
+          setDevOpsMetrics(prev => ({
+            ...prev,
+            deploymentFrequency: Math.min(100, prev.deploymentFrequency + 5)
+          }));
+          break;
+      }
+      
       toast({
-        title: "Security Breach!",
-        description: `Company suffered a security incident. Income reduced by ${hackDamage}%`,
-        variant: "destructive"
+        title: "Task Completed!",
+        description: `${task.title} completed successfully!`,
       });
     }
-    
-    setBusinessMetrics(newMetrics);
+  };
+
+  // End turn
+  const endTurn = () => {
     setTurnNumber(prev => prev + 1);
-    setCurrentPhase('planning');
-    setSelectedChallenges([]);
-    setVotingResults([]);
-    setVotes({});
+    setCurrentPhase('start_turn');
+    setSelectedTasks([]);
+    setUnselectedTasks([]);
+    setCurrentTasks([]);
+    setCompletedTasks([]);
+    setCurrentEvent(null);
     
     toast({
       title: "Turn Complete",
       description: `Starting Turn ${turnNumber + 1}`,
-    });
-  };
-
-  const handleCompleteChallenge = (challengeId: string) => {
-    setCompletedChallenges(prev => [...prev, challengeId]);
-    
-    // Improve metrics based on challenge type
-    const challenge = selectedChallenges.find(c => c.id === challengeId);
-    if (challenge) {
-      let newBusinessMetrics = { ...businessMetrics };
-      let newDevOpsMetrics = { ...devOpsMetrics };
-      
-      switch (challenge.type) {
-        case 'security':
-          newBusinessMetrics.securityRisk = Math.max(0, newBusinessMetrics.securityRisk - 20);
-          newBusinessMetrics.reputation = Math.min(100, newBusinessMetrics.reputation + 5);
-          break;
-        case 'performance':
-          newBusinessMetrics.performanceScore = Math.min(100, newBusinessMetrics.performanceScore + 15);
-          newDevOpsMetrics.mttr = Math.min(100, newDevOpsMetrics.mttr + 10);
-          break;
-        case 'bug':
-          newBusinessMetrics.reputation = Math.min(100, newBusinessMetrics.reputation + 3);
-          newDevOpsMetrics.changeFailureRate = Math.min(100, newDevOpsMetrics.changeFailureRate + 5);
-          break;
-        case 'feature':
-          newBusinessMetrics.income = Math.min(200, newBusinessMetrics.income + 5);
-          newDevOpsMetrics.deploymentFrequency = Math.min(100, newDevOpsMetrics.deploymentFrequency + 5);
-          break;
-      }
-      
-      setBusinessMetrics(newBusinessMetrics);
-      setDevOpsMetrics(newDevOpsMetrics);
-    }
-    
-    toast({
-      title: "Task Completed!",
-      description: "Great work! Metrics improved.",
     });
   };
 
@@ -273,6 +418,10 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
                 <Clock className="w-4 h-4" />
                 Turn {turnNumber}
               </Badge>
+              <Badge variant="outline" className="flex items-center gap-1">
+                <CalendarDays className="w-4 h-4" />
+                Phase: {currentPhase.replace('_', ' ')}
+              </Badge>
             </div>
           </div>
           <Button variant="outline" onClick={handleEndGame}>
@@ -290,7 +439,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
                   <div className="flex items-center gap-2">
                     <DollarSign className="w-5 h-5 text-primary" />
                     <div>
-                      <div className="text-2xl font-bold text-primary">{businessMetrics.income}%</div>
+                      <div className="text-2xl font-bold text-primary">{businessMetrics.businessIncome}%</div>
                       <div className="text-sm text-muted-foreground">Income</div>
                     </div>
                   </div>
@@ -299,10 +448,10 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
               <Card>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-error" />
+                    <Shield className="w-5 h-5 text-primary" />
                     <div>
-                      <div className="text-2xl font-bold text-error">{businessMetrics.securityRisk}%</div>
-                      <div className="text-sm text-muted-foreground">Security Risk</div>
+                      <div className="text-2xl font-bold text-primary">{businessMetrics.securityScore}%</div>
+                      <div className="text-sm text-muted-foreground">Security Score</div>
                     </div>
                   </div>
                 </CardContent>
@@ -363,33 +512,91 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
             </div>
           </div>
 
-          {/* Turn Controls */}
-          {currentPhase === 'planning' && (
+          {/* Active Consequences */}
+          {activeConsequences.length > 0 && (
+            <Card className="border-warning bg-warning/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-warning">
+                  <AlertTriangle className="w-5 h-5" />
+                  Active Consequences
+                </CardTitle>
+                <CardDescription>
+                  Impact from previous unaddressed tasks
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {activeConsequences.map((consequence, index) => (
+                    <div key={index} className="p-3 rounded-lg bg-muted/50">
+                      <div className="font-medium text-sm">{consequence.description}</div>
+                      <div className="text-xs text-muted-foreground">{consequence.impact}</div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Current Event */}
+          {currentPhase === 'events' && currentEvent && (
+            <Card className="border-warning bg-warning/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-warning" />
+                  Random Event: {currentEvent.name}
+                </CardTitle>
+                <CardDescription>
+                  An unexpected event has occurred that affects your team
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm mb-4">{currentEvent.description}</p>
+                <Button onClick={completeEvents} className="w-full">
+                  Acknowledge Event
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Phase Controls */}
+          {currentPhase === 'start_turn' && (
             <div className="mb-6">
               <Button 
-                onClick={handleStartVoting}
+                onClick={startVoting}
                 className="w-full bg-gradient-primary text-white hover:opacity-90"
                 size="lg"
               >
-                Start Turn Planning
+                Start Turn {turnNumber} - Select Priorities
               </Button>
             </div>
           )}
 
-          {currentPhase === 'execution' && selectedChallenges.length > 0 && (
+          {currentPhase === 'execution' && selectedTasks.length > 0 && (
             <div className="mb-6">
               <Button 
-                onClick={handleEndTurn}
+                onClick={executeSelectedTasks}
                 className="w-full bg-gradient-primary text-white hover:opacity-90"
                 size="lg"
               >
-                End Turn
+                Execute Selected Tasks
               </Button>
             </div>
           )}
 
-          {/* Selected Challenges for Execution */}
-          {currentPhase === 'execution' && selectedChallenges.length > 0 && (
+          {currentPhase === 'end_turn' && (
+            <div className="mb-6">
+              <Button 
+                onClick={endTurn}
+                className="w-full bg-gradient-primary text-white hover:opacity-90"
+                size="lg"
+              >
+                Complete Turn {turnNumber}
+              </Button>
+            </div>
+          )}
+
+          {/* Selected Tasks for Execution */}
+          {currentPhase === 'execution' && selectedTasks.length > 0 && (
             <Card className="bg-gradient-card shadow-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -402,24 +609,24 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {selectedChallenges.map((challenge) => {
-                    const isCompleted = completedChallenges.includes(challenge.id);
+                  {selectedTasks.map((task) => {
+                    const isCompleted = completedTasks.includes(task.id);
                     
                     return (
                       <Card 
-                        key={challenge.id} 
+                        key={task.id} 
                         className={`border-border/50 ${isCompleted ? 'opacity-50' : ''}`}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-semibold">{challenge.title}</h4>
-                                <Badge className={CHALLENGE_COLORS[challenge.type]}>
-                                  {challenge.type}
+                                <h4 className="font-semibold">{task.title}</h4>
+                                <Badge className={CHALLENGE_COLORS[task.type]}>
+                                  {task.type}
                                 </Badge>
                                 <Badge variant="outline">
-                                  Difficulty: {challenge.difficulty}
+                                  Difficulty: {task.difficulty}
                                 </Badge>
                                 {isCompleted && (
                                   <Badge className="bg-success text-success-foreground">
@@ -428,13 +635,13 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
                                 )}
                               </div>
                               <p className="text-sm text-muted-foreground mb-3">
-                                {challenge.description}
+                                {task.description}
                               </p>
                               
                               {!isCompleted && (
                                 <Button
                                   size="sm"
-                                  onClick={() => handleCompleteChallenge(challenge.id)}
+                                  onClick={() => handleCompleteTask(task.id)}
                                   className="bg-success hover:bg-success/90"
                                 >
                                   <CheckCircle className="w-4 h-4 mr-1" />
@@ -470,7 +677,11 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="font-semibold">{player.name}</h4>
-                        <p className="text-sm text-muted-foreground">{player.role}</p>
+                        {player.role ? (
+                          <p className="text-sm text-muted-foreground">{player.role}</p>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Host</Badge>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -483,11 +694,20 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
         <VotingPopup
           isOpen={showVotingPopup}
           onClose={() => setShowVotingPopup(false)}
-          challenges={currentChallenges}
+          challenges={currentTasks}
           onVoteSubmit={(most, least) => {
-            // Simple vote handling for now
-            const results = currentChallenges.map(c => ({ challenge: c, votes: Math.floor(Math.random() * 10) }));
-            handleVotingComplete(results);
+            // Simple vote handling - select top 3 most voted
+            const voteCounts = new Map<string, number>();
+            currentTasks.forEach(task => {
+              voteCounts.set(task.id, Math.floor(Math.random() * 10) + 1);
+            });
+            
+            const sortedTasks = currentTasks.sort((a, b) => 
+              (voteCounts.get(b.id) || 0) - (voteCounts.get(a.id) || 0)
+            );
+            
+            const selectedIds = sortedTasks.slice(0, 3).map(task => task.id);
+            completeVoting(selectedIds);
           }}
         />
       </div>

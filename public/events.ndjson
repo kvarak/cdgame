@@ -1,0 +1,20 @@
+{"id": "cloud_outage", "name": "Cloud Provider Outage", "description": "Your cloud provider has an outage affecting 20% of your infrastructure", "effect": "reduce_income", "severity": 15, "duration": 1}
+{"id": "ddos_attack", "name": "DDoS Attack", "description": "Your application is under a distributed denial of service attack", "effect": "reduce_income", "severity": 25, "duration": 2}
+{"id": "security_audit", "name": "Surprise Security Audit", "description": "Regulatory compliance requires an immediate security review", "effect": "block_deployment", "severity": 0, "duration": 1}
+{"id": "key_developer_leave", "name": "Key Developer Leaves", "description": "A senior developer has left the company unexpectedly", "effect": "reduce_velocity", "severity": 20, "duration": 3}
+{"id": "database_corruption", "name": "Database Corruption", "description": "Critical data corruption detected in production database", "effect": "emergency_task", "severity": 30, "duration": 1}
+{"id": "viral_feature", "name": "Feature Goes Viral", "description": "One of your features unexpectedly goes viral, causing massive traffic spike", "effect": "increase_income", "severity": 20, "duration": 2}
+{"id": "competitor_launch", "name": "Competitor Product Launch", "description": "A major competitor just launched a similar product", "effect": "market_pressure", "severity": 15, "duration": 3}
+{"id": "budget_cut", "name": "Budget Cuts", "description": "Management has reduced the engineering budget by 25%", "effect": "reduce_resources", "severity": 25, "duration": 4}
+{"id": "acquisition_offer", "name": "Acquisition Offer", "description": "A large company wants to acquire your startup", "effect": "distraction", "severity": 10, "duration": 2}
+{"id": "talent_shortage", "name": "Talent Shortage", "description": "Difficulty hiring qualified engineers in the current market", "effect": "slow_hiring", "severity": 15, "duration": 3}
+{"id": "regulatory_change", "name": "New Regulations", "description": "Government introduces new data privacy regulations", "effect": "compliance_task", "severity": 20, "duration": 2}
+{"id": "server_hardware_failure", "name": "Hardware Failure", "description": "Critical server hardware has failed in production", "effect": "infrastructure_issue", "severity": 30, "duration": 1}
+{"id": "api_deprecation", "name": "Third-party API Deprecation", "description": "A critical third-party service is deprecating their API", "effect": "technical_debt", "severity": 25, "duration": 2}
+{"id": "team_burnout", "name": "Team Burnout", "description": "High stress levels are affecting team productivity", "effect": "reduce_velocity", "severity": 20, "duration": 2}
+{"id": "positive_press", "name": "Positive Press Coverage", "description": "Tech media writes glowing reviews about your product", "effect": "increase_income", "severity": 15, "duration": 2}
+{"id": "license_issue", "name": "Software License Issue", "description": "Legal discovers potential licensing violations in dependencies", "effect": "legal_review", "severity": 20, "duration": 2}
+{"id": "office_network_down", "name": "Office Network Outage", "description": "Office internet connection is down, team working from mobile hotspots", "effect": "reduce_velocity", "severity": 15, "duration": 1}
+{"id": "investor_demo", "name": "Investor Demo Day", "description": "Urgent request to prepare demo for potential investors", "effect": "priority_shift", "severity": 10, "duration": 1}
+{"id": "social_media_crisis", "name": "Social Media Crisis", "description": "Negative viral post about your product requires immediate response", "effect": "reputation_damage", "severity": 20, "duration": 2}
+{"id": "christmas_vacation", "name": "Holiday Season", "description": "Many team members are taking vacation during the holidays", "effect": "reduce_velocity", "severity": 25, "duration": 1}

@@ -38,7 +38,6 @@ const AVAILABLE_ROLES = [
   'Site Reliability Engineer'
 ] as const;
 
-const HOST_ROLES = ['Manager', 'CEO'] as const;
 
 const ROLE_COLORS = {
   'Random': 'bg-gradient-primary text-white',
