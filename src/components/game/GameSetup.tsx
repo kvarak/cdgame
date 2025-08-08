@@ -54,7 +54,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
   const [hostName, setHostName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [joinPlayerName, setJoinPlayerName] = useState('');
-  const [joinPlayerRole, setJoinPlayerRole] = useState<Player['role']>('Random');
+  const [joinPlayerRole] = useState<Player['role']>('Developer'); // Default role for join
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
@@ -482,21 +482,6 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="join-player-role" className="text-base font-medium">
-                  Your Role
-                </Label>
-                <select
-                  id="join-player-role"
-                  value={joinPlayerRole}
-                  onChange={(e) => setJoinPlayerRole(e.target.value as Player['role'])}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {AVAILABLE_ROLES.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
-              </div>
 
               <Button
                 onClick={handleJoinGame}
