@@ -39,7 +39,7 @@ export const SimpleGameSetup = () => {
   const defaultJoinName = user ? getDisplayName(user) : generateRandomName();
   
   const [hostName, setHostName] = useState(defaultHostName);
-  const [hostRole, setHostRole] = useState<Player['role']>('Manager');
+  
   const [joinCode, setJoinCode] = useState('');
   const [joinPlayerName, setJoinPlayerName] = useState(defaultJoinName);
   const [joinPlayerRole, setJoinPlayerRole] = useState<Player['role']>('Random');
@@ -77,12 +77,9 @@ export const SimpleGameSetup = () => {
     
     try {
       const gameCode = generateGameCode();
-      const finalHostRole = hostRole === 'Random' ? HOST_ROLES[Math.floor(Math.random() * HOST_ROLES.length)] : hostRole;
-
       console.log('📝 Creating game session with data:', {
         gameCode,
-        hostName,
-        finalHostRole
+        hostName
       });
 
       // Skip database connection test - go straight to insert
@@ -115,7 +112,7 @@ export const SimpleGameSetup = () => {
         .insert({
           game_session_id: gameSession.id,
           player_name: hostName,
-          player_role: finalHostRole,
+          player_role: null, // Host has no game role
           player_order: 0,
           is_host: true,
           status: 'joined'
@@ -304,20 +301,6 @@ export const SimpleGameSetup = () => {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="host-role">Your Role (Host)</Label>
-                <select
-                  id="host-role"
-                  value={hostRole}
-                  onChange={(e) => setHostRole(e.target.value as Player['role'])}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="Random">Random Manager Role</option>
-                  {HOST_ROLES.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
-              </div>
 
 
               <div className="pt-4">

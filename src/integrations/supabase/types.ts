@@ -113,7 +113,7 @@ export type Database = {
           last_seen: string | null
           player_name: string
           player_order: number
-          player_role: string
+          player_role: string | null
           status: string | null
           updated_at: string
         }
@@ -126,7 +126,7 @@ export type Database = {
           last_seen?: string | null
           player_name: string
           player_order: number
-          player_role: string
+          player_role?: string | null
           status?: string | null
           updated_at?: string
         }
@@ -139,7 +139,7 @@ export type Database = {
           last_seen?: string | null
           player_name?: string
           player_order?: number
-          player_role?: string
+          player_role?: string | null
           status?: string | null
           updated_at?: string
         }
