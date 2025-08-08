@@ -291,6 +291,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_sprint_state: {
+        Args: { p_session_id: string; p_sprint_state: Json }
+        Returns: boolean
+      }
       validate_game_access: {
         Args: { session_id: string; player_name: string }
         Returns: boolean
