@@ -171,6 +171,7 @@ const Index = () => {
       gameCode={gameCode} 
       gameSessionId={gameSessionId} 
       onEndGame={handleEndGame}
+      onLeaveGame={handleLeaveWaitingRoom}
       isHost={isHost}
       currentPlayerName={currentPlayerName}
     />;

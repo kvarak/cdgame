@@ -34,6 +34,7 @@ interface GameBoardProps {
   gameCode: string;
   gameSessionId: string;
   onEndGame: () => void;
+  onLeaveGame?: () => void;
   isHost?: boolean;
   currentPlayerName?: string;
 }
@@ -73,7 +74,7 @@ const CHALLENGE_COLORS = {
   feature: 'bg-success text-success-foreground'
 };
 
-export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost = true, currentPlayerName }: GameBoardProps) => {
+export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeaveGame, isHost = true, currentPlayerName }: GameBoardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
@@ -149,6 +150,35 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
     loadChallenges();
     loadEvents();
   }, []);
+
+  // Real-time subscription for game session updates
+  useEffect(() => {
+    if (!gameSessionId) return;
+
+    const channel = supabase
+      .channel('game-session-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'game_sessions',
+          filter: `id=eq.${gameSessionId}`
+        },
+        (payload) => {
+          console.log('Game session updated:', payload.new);
+          // If the game status changed to ended, trigger onEndGame for all players
+          if (payload.new.status === 'ended') {
+            onEndGame();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [gameSessionId, onEndGame]);
 
   // Start voting phase
   const startVoting = () => {
@@ -434,17 +464,42 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   };
 
   const handleEndGame = async () => {
-    // Log game end event
-    await logGameEvent('end', gameSessionId, {
-      gameCode,
-      turnsCompleted: turnNumber,
-      gameDurationMinutes: Math.round((new Date().getTime() - gameStartTime.getTime()) / (1000 * 60)),
-      totalPlayers: players.length,
-      finalBusinessMetrics: businessMetrics,
-      finalDevOpsMetrics: devOpsMetrics
-    });
-    
-    onEndGame();
+    try {
+      // Update the game session status to 'ended' in the database
+      const { error } = await supabase
+        .from('game_sessions')
+        .update({ status: 'ended' })
+        .eq('id', gameSessionId);
+
+      if (error) {
+        console.error('Error ending game:', error);
+        toast({
+          title: "Error",
+          description: "Failed to end game",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Log game end event
+      await logGameEvent('end', gameSessionId, {
+        gameCode,
+        turnsCompleted: turnNumber,
+        gameDurationMinutes: Math.round((new Date().getTime() - gameStartTime.getTime()) / (1000 * 60)),
+        totalPlayers: players.length,
+        finalBusinessMetrics: businessMetrics,
+        finalDevOpsMetrics: devOpsMetrics
+      });
+
+      // The real-time subscription will handle calling onEndGame for all players
+    } catch (error) {
+      console.error('Error ending game:', error);
+      toast({
+        title: "Error",
+        description: "Failed to end game",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -452,30 +507,39 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
       <div className="container mx-auto max-w-7xl">
         {/* Game Header */}
         <div className="mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              DevOps Pipeline Game
-            </h1>
-            <div className="flex items-center gap-4 mt-2">
-              <Badge variant="outline" className="flex items-center gap-1">
-                <GamepadIcon className="w-4 h-4" />
-                Game: {gameCode}
-              </Badge>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
-                Turn {turnNumber}
-              </Badge>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <CalendarDays className="w-4 h-4" />
-                Phase: {currentPhase.replace('_', ' ')}
-              </Badge>
+            <div className="flex justify-between items-start lg:items-center gap-4">
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                  DevOps Pipeline Game
+                </h1>
+                <div className="flex items-center gap-4 mt-2">
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <GamepadIcon className="w-4 h-4" />
+                    Game: {gameCode}
+                  </Badge>
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    Turn {turnNumber}
+                  </Badge>
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    <CalendarDays className="w-4 h-4" />
+                    Phase: {currentPhase.replace('_', ' ')}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {!isHost && onLeaveGame && (
+                  <Button variant="outline" onClick={onLeaveGame}>
+                    Leave Game
+                  </Button>
+                )}
+                {isHost && (
+                  <Button variant="outline" onClick={handleEndGame}>
+                    End Game
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-          {isHost && (
-            <Button variant="outline" onClick={handleEndGame}>
-              End Game
-            </Button>
-          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
