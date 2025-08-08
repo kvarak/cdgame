@@ -10,6 +10,7 @@ import heroImage from "@/assets/devops-hero.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { GameHistory } from "./GameHistory";
+import { generateRandomName, getDisplayName } from "@/utils/nameGenerator";
 
 interface Player {
   id: string;
@@ -29,14 +30,19 @@ const AVAILABLE_ROLES = [
 
 export const SimpleGameSetup = () => {
   const [gameMode, setGameMode] = useState<'create' | 'join' | 'history'>('create');
-  const [hostName, setHostName] = useState('');
+  const { user } = useAuth();
+  
+  // Set default names based on auth state
+  const defaultHostName = user ? getDisplayName(user) : generateRandomName();
+  const defaultJoinName = user ? getDisplayName(user) : generateRandomName();
+  
+  const [hostName, setHostName] = useState(defaultHostName);
   const [hostRole, setHostRole] = useState<Player['role']>('Random');
   const [joinCode, setJoinCode] = useState('');
-  const [joinPlayerName, setJoinPlayerName] = useState('');
+  const [joinPlayerName, setJoinPlayerName] = useState(defaultJoinName);
   const [joinPlayerRole, setJoinPlayerRole] = useState<Player['role']>('Random');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
 
   const generateGameCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -283,7 +289,7 @@ export const SimpleGameSetup = () => {
                 <Label htmlFor="host-name">Your Name (Host)</Label>
                 <Input
                   id="host-name"
-                  placeholder="Enter your name"
+                  placeholder={defaultHostName}
                   value={hostName}
                   onChange={(e) => setHostName(e.target.value)}
                 />
@@ -353,7 +359,7 @@ export const SimpleGameSetup = () => {
                 <Label htmlFor="join-player-name">Your Name</Label>
                 <Input
                   id="join-player-name"
-                  placeholder="Enter your name"
+                  placeholder={defaultJoinName}
                   value={joinPlayerName}
                   onChange={(e) => setJoinPlayerName(e.target.value)}
                 />

@@ -139,6 +139,8 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
   const [gameScore, setGameScore] = useState(0);
   const [turnCount, setTurnCount] = useState(1);
   const [gameStartTime] = useState(new Date());
+  const [selectedChallengesThisTurn, setSelectedChallengesThisTurn] = useState<string[]>([]);
+  const [sprintPhase, setSprintPhase] = useState<'planning' | 'execution'>('planning');
 
   // Log game start event when component mounts
   useEffect(() => {
@@ -156,14 +158,63 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
   const overallProgress = (totalProgress / maxTotalProgress) * 100;
 
   const nextTurn = () => {
-    const nextTurnIndex = (currentTurn + 1) % players.length;
-    setCurrentTurn(nextTurnIndex);
-    if (nextTurnIndex === 0) {
-      setTurnCount(prev => prev + 1);
+    if (sprintPhase === 'planning') {
+      // Move to execution phase if we have selected challenges
+      if (selectedChallengesThisTurn.length > 0) {
+        setSprintPhase('execution');
+        toast({
+          title: "Sprint Execution Phase",
+          description: `Working on ${selectedChallengesThisTurn.length} selected challenges`,
+        });
+      } else {
+        toast({
+          title: "No Challenges Selected",
+          description: "Please select at least one challenge for this sprint",
+          variant: "destructive",
+        });
+      }
+    } else {
+      // End of sprint - move to next player's turn
+      const nextTurnIndex = (currentTurn + 1) % players.length;
+      setCurrentTurn(nextTurnIndex);
+      setSelectedChallengesThisTurn([]);
+      setSprintPhase('planning');
+      
+      if (nextTurnIndex === 0) {
+        setTurnCount(prev => prev + 1);
+      }
+      
+      toast({
+        title: "New Sprint",
+        description: `${players[nextTurnIndex].name}'s turn to plan sprint`,
+      });
     }
   };
 
+  const selectChallengeForSprint = (challengeId: string) => {
+    if (sprintPhase !== 'planning') return;
+    
+    setSelectedChallengesThisTurn(prev => {
+      if (prev.includes(challengeId)) {
+        // Deselect challenge
+        return prev.filter(id => id !== challengeId);
+      } else if (prev.length < 3) {
+        // Select challenge (max 3 per sprint)
+        return [...prev, challengeId];
+      } else {
+        toast({
+          title: "Sprint Full",
+          description: "Maximum 3 challenges per sprint",
+          variant: "destructive",
+        });
+        return prev;
+      }
+    });
+  };
+
   const assignChallenge = (challengeId: string, playerId: string) => {
+    if (sprintPhase !== 'execution' || !selectedChallengesThisTurn.includes(challengeId)) return;
+    
     setChallenges(prev => 
       prev.map(challenge => 
         challenge.id === challengeId 
@@ -264,13 +315,20 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
               Current Turn: {currentPlayer.name}
             </CardTitle>
             <CardDescription>
-              Playing as {currentPlayer.role}
+              Playing as {currentPlayer.role} • {sprintPhase === 'planning' ? 'Sprint Planning' : 'Sprint Execution'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={nextTurn} className="bg-gradient-primary">
-              End Turn
-            </Button>
+            <div className="flex items-center gap-4">
+              <Button onClick={nextTurn} className="bg-gradient-primary">
+                {sprintPhase === 'planning' ? 'Start Sprint' : 'End Sprint'}
+              </Button>
+              {sprintPhase === 'planning' && (
+                <Badge variant="outline">
+                  {selectedChallengesThisTurn.length}/3 challenges selected
+                </Badge>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -337,60 +395,98 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame }: GameB
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 text-warning" />
-                  Active Challenges
+                  {sprintPhase === 'planning' ? 'Sprint Planning - Select Challenges' : 'Sprint Execution - Active Challenges'}
                 </CardTitle>
                 <CardDescription>
-                  Collaborate to solve these DevOps challenges
+                  {sprintPhase === 'planning' 
+                    ? 'Select up to 3 challenges for this sprint'
+                    : 'Work on the selected challenges and assign them to team members'
+                  }
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {challenges.map((challenge) => (
-                    <Card key={challenge.id} className="border-border/50">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-semibold">{challenge.title}</h4>
-                              <Badge className={CHALLENGE_COLORS[challenge.type]}>
-                                {challenge.type}
-                              </Badge>
-                              <Badge variant="outline">
-                                Difficulty: {challenge.difficulty}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground mb-3">
-                              {challenge.description}
-                            </p>
-                            
-                            {challenge.assignedPlayer ? (
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary">
-                                  Assigned to {players.find(p => p.id === challenge.assignedPlayer)?.name}
-                                </Badge>
-                                <Button
-                                  size="sm"
-                                  onClick={() => completeChallenge(challenge.id)}
-                                  className="bg-success hover:bg-success/90"
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-1" />
-                                  Complete
-                                </Button>
+                  {challenges
+                    .filter(challenge => sprintPhase === 'planning' || selectedChallengesThisTurn.includes(challenge.id))
+                    .map((challenge) => {
+                      const isSelected = selectedChallengesThisTurn.includes(challenge.id);
+                      const canSelect = sprintPhase === 'planning' && selectedChallengesThisTurn.length < 3;
+                      
+                      return (
+                        <Card 
+                          key={challenge.id} 
+                          className={`border-border/50 transition-all ${
+                            isSelected ? 'ring-2 ring-primary bg-primary/5' : ''
+                          } ${
+                            sprintPhase === 'planning' ? 'cursor-pointer hover:bg-muted/50' : ''
+                          }`}
+                          onClick={() => sprintPhase === 'planning' && selectChallengeForSprint(challenge.id)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h4 className="font-semibold">{challenge.title}</h4>
+                                  <Badge className={CHALLENGE_COLORS[challenge.type]}>
+                                    {challenge.type}
+                                  </Badge>
+                                  <Badge variant="outline">
+                                    Difficulty: {challenge.difficulty}
+                                  </Badge>
+                                  {isSelected && (
+                                    <Badge className="bg-primary text-primary-foreground">
+                                      Selected
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-3">
+                                  {challenge.description}
+                                </p>
+                                
+                                {sprintPhase === 'execution' && isSelected && (
+                                  challenge.assignedPlayer ? (
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="secondary">
+                                        Assigned to {players.find(p => p.id === challenge.assignedPlayer)?.name}
+                                      </Badge>
+                                      <Button
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          completeChallenge(challenge.id);
+                                        }}
+                                        className="bg-success hover:bg-success/90"
+                                      >
+                                        <CheckCircle className="w-4 h-4 mr-1" />
+                                        Complete
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        assignChallenge(challenge.id, currentPlayer.id);
+                                      }}
+                                    >
+                                      Take Challenge
+                                    </Button>
+                                  )
+                                )}
                               </div>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => assignChallenge(challenge.id, currentPlayer.id)}
-                              >
-                                Take Challenge
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  
+                  {sprintPhase === 'planning' && challenges.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No challenges available</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
