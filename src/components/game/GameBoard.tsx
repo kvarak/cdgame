@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -83,6 +84,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
   const [currentPhase, setCurrentPhase] = useState<GamePhase>('start_turn');
   const [turnNumber, setTurnNumber] = useState(1);
   const [gameStartTime] = useState(new Date());
+  const [showGameEndDialog, setShowGameEndDialog] = useState(false);
 
   // Challenges and events
   const [availableChallenges, setAvailableChallenges] = useState<Challenge[]>([]);
@@ -167,9 +169,30 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
         },
         (payload) => {
           console.log('Game session updated:', payload.new);
-          // If the game status changed to ended, trigger onEndGame for all players
+          
+          // Handle game ending
           if (payload.new.status === 'ended') {
-            onEndGame();
+            setShowGameEndDialog(true);
+            return;
+          }
+          
+          // Sync game state for all players
+          if (payload.new.current_sprint_state) {
+            const state = payload.new.current_sprint_state;
+            
+            // Update phase and tasks from facilitator
+            if (state.phase) {
+              setCurrentPhase(state.phase);
+            }
+            if (state.current_tasks) {
+              setCurrentTasks(state.current_tasks);
+            }
+            if (state.turn_number) {
+              setTurnNumber(state.turn_number);
+            }
+            if (state.player_votes) {
+              setPlayerVotes(state.player_votes);
+            }
           }
         }
       )
@@ -180,8 +203,37 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     };
   }, [gameSessionId, onEndGame]);
 
+  // Sync game state to database when facilitator makes changes
+  const syncGameState = async (updates: any) => {
+    if (!isHost) return; // Only facilitator syncs state
+    
+    try {
+      const currentState = {
+        phase: currentPhase,
+        current_tasks: currentTasks,
+        turn_number: turnNumber,
+        player_votes: playerVotes,
+        ...updates
+      };
+      
+      const { error } = await supabase
+        .from('game_sessions')
+        .update({ 
+          current_sprint_state: currentState,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', gameSessionId);
+
+      if (error) {
+        console.error('Error syncing game state:', error);
+      }
+    } catch (error) {
+      console.error('Error syncing game state:', error);
+    }
+  };
+
   // Start voting phase
-  const startVoting = () => {
+  const startVoting = async () => {
     setCurrentPhase('voting');
     setPlayerVotes({});
     
@@ -197,22 +249,33 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     console.log('Starting voting phase with tasks:', randomTasks);
     console.log('Team members:', teamMembers);
     console.log('Current player name:', currentPlayerName);
+    
+    // Sync state to database for all players
+    await syncGameState({
+      phase: 'voting',
+      current_tasks: randomTasks,
+      player_votes: {}
+    });
   };
 
   // Check if current player has voted
   const hasVoted = playerVotes[currentPlayerName || ''] !== undefined;
 
   // Handle individual player vote
-  const submitPlayerVote = (selectedTaskId: string) => {
+  const submitPlayerVote = async (selectedTaskId: string) => {
     if (!currentPlayerName || hasVoted) return;
     
     const newVotes = { ...playerVotes, [currentPlayerName]: selectedTaskId };
     setPlayerVotes(newVotes);
-    setShowVotingPopup(false);
     
     toast({
       title: "Vote Submitted",
       description: "Your vote has been recorded!",
+    });
+    
+    // Sync votes to database
+    await syncGameState({
+      player_votes: newVotes
     });
     
     // Check if all team members have voted
@@ -222,7 +285,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
   };
 
   // Handle voting completion when all votes are in
-  const completeVoting = (allVotes: {[playerName: string]: string}) => {
+  const completeVoting = async (allVotes: {[playerName: string]: string}) => {
     // Count votes for each task
     const voteCount: {[taskId: string]: number} = {};
     Object.values(allVotes).forEach(taskId => {
@@ -241,6 +304,13 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     setUnselectedTasks(unselected);
     
     // Move to events phase
+    setCurrentPhase('events');
+    await syncGameState({
+      phase: 'events',
+      selected_tasks: selected,
+      unselected_tasks: unselected
+    });
+    
     startEvents();
   };
 
@@ -963,6 +1033,27 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
             </Card>
           </div>
         </div>
+
+        {/* Game End Dialog */}
+        <AlertDialog open={showGameEndDialog} onOpenChange={setShowGameEndDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>🎮 Game Ended</AlertDialogTitle>
+              <AlertDialogDescription>
+                The facilitator has ended the game. Thank you for playing the DevOps Pipeline Game! 
+                You'll now return to the main menu where you can start a new game.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => {
+                setShowGameEndDialog(false);
+                onEndGame();
+              }}>
+                Return to Main Menu
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* VotingPopup is no longer needed since voting is inline */}
       </div>
