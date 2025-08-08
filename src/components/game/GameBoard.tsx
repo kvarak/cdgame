@@ -372,15 +372,21 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     setSelectedTasks(selected);
     setUnselectedTasks(unselected);
     
-    // Move to execution phase
+    // Move to execution phase and automatically process results
     setCurrentPhase('execution');
+    setSelectedTasks(selected);
+    setUnselectedTasks(unselected);
+    
     await syncGameState({
       phase: 'execution',
       selected_tasks: selected,
       unselected_tasks: unselected
     });
     
-    startEvents();
+    // Auto-execute the task results after a brief delay for visual feedback
+    setTimeout(() => {
+      executeSelectedTasks();
+    }, 2000);
   };
 
   // Start events phase
