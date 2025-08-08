@@ -99,7 +99,6 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   // Voting state
   const [showVotingPopup, setShowVotingPopup] = useState(false);
   const [playerVotes, setPlayerVotes] = useState<{[playerName: string]: string}>({});
-  const [hasVoted, setHasVoted] = useState(false);
 
   // Metrics
   const [businessMetrics, setBusinessMetrics] = useState({
@@ -155,7 +154,6 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   const startVoting = () => {
     setCurrentPhase('voting');
     setPlayerVotes({});
-    setHasVoted(false);
     
     // Start with 3 random tasks for turn 1, increase for later turns
     const tasksToShow = Math.min(3 + (turnNumber - 1), 5);
@@ -166,11 +164,14 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
     
     setCurrentTasks(randomTasks);
     
-    // Show voting popup only to team members (not facilitator)
+    // Show voting popup to team members immediately
     if (!isHost && teamMembers.some(member => member.name === currentPlayerName)) {
       setShowVotingPopup(true);
     }
   };
+
+  // Check if current player has voted
+  const hasVoted = playerVotes[currentPlayerName || ''] !== undefined;
 
   // Handle individual player vote
   const submitPlayerVote = (selectedTaskId: string) => {
@@ -178,7 +179,6 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
     
     const newVotes = { ...playerVotes, [currentPlayerName]: selectedTaskId };
     setPlayerVotes(newVotes);
-    setHasVoted(true);
     setShowVotingPopup(false);
     
     toast({
@@ -479,93 +479,95 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Left Sidebar - Always Visible Performance */}
-          <div className="lg:col-span-1 space-y-4">
-            {/* Business Metrics - Compact */}
-            <Card className="bg-gradient-card">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <DollarSign className="w-4 h-4" />
-                  Business
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Income</span>
-                  <span className="text-sm font-bold text-primary">{businessMetrics.businessIncome}%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Security</span>
-                  <span className="text-sm font-bold text-primary">{businessMetrics.securityScore}%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Performance</span>
-                  <span className="text-sm font-bold text-primary">{businessMetrics.performanceScore}%</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Reputation</span>
-                  <span className="text-sm font-bold text-primary">{businessMetrics.reputation}%</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* DevOps Metrics - Compact */}
-            <Card className="bg-gradient-card">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Zap className="w-4 h-4" />
-                  DevOps
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0 space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Deploy Freq</span>
-                  <span className="text-sm font-bold text-primary">{devOpsMetrics.deploymentFrequency}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Lead Time</span>
-                  <span className="text-sm font-bold text-primary">{devOpsMetrics.leadTime}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">MTTR</span>
-                  <span className="text-sm font-bold text-primary">{devOpsMetrics.mttr}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">Success Rate</span>
-                  <span className="text-sm font-bold text-primary">{devOpsMetrics.changeFailureRate}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Active Consequences - Always Visible */}
-            <Card className="border-warning bg-warning/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium flex items-center gap-2 text-warning">
-                  <AlertTriangle className="w-4 h-4" />
-                  Active Issues
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {activeConsequences.length > 0 ? (
-                  <div className="space-y-2">
-                    {activeConsequences.map((consequence, index) => (
-                      <div key={index} className="p-2 rounded bg-muted/30 border border-warning/20">
-                        <div className="text-xs font-medium text-warning">{consequence.description}</div>
-                        <div className="text-xs text-muted-foreground mt-1">{consequence.impact}</div>
-                      </div>
-                    ))}
+          {/* Left Sidebar - Only show for facilitator */}
+          {isHost && (
+            <div className="lg:col-span-1 space-y-4">
+              {/* Business Metrics - Compact */}
+              <Card className="bg-gradient-card">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    Business
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Income</span>
+                    <span className="text-sm font-bold text-primary">{businessMetrics.businessIncome}%</span>
                   </div>
-                ) : (
-                  <div className="text-xs text-muted-foreground text-center py-4">
-                    No active issues
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Security</span>
+                    <span className="text-sm font-bold text-primary">{businessMetrics.securityScore}%</span>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Performance</span>
+                    <span className="text-sm font-bold text-primary">{businessMetrics.performanceScore}%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Reputation</span>
+                    <span className="text-sm font-bold text-primary">{businessMetrics.reputation}%</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* DevOps Metrics - Compact */}
+              <Card className="bg-gradient-card">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Zap className="w-4 h-4" />
+                    DevOps
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Deploy Freq</span>
+                    <span className="text-sm font-bold text-primary">{devOpsMetrics.deploymentFrequency}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Lead Time</span>
+                    <span className="text-sm font-bold text-primary">{devOpsMetrics.leadTime}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">MTTR</span>
+                    <span className="text-sm font-bold text-primary">{devOpsMetrics.mttr}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Success Rate</span>
+                    <span className="text-sm font-bold text-primary">{devOpsMetrics.changeFailureRate}</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Active Consequences - Always Visible */}
+              <Card className="border-warning bg-warning/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2 text-warning">
+                    <AlertTriangle className="w-4 h-4" />
+                    Active Issues
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {activeConsequences.length > 0 ? (
+                    <div className="space-y-2">
+                      {activeConsequences.map((consequence, index) => (
+                        <div key={index} className="p-2 rounded bg-muted/30 border border-warning/20">
+                          <div className="text-xs font-medium text-warning">{consequence.description}</div>
+                          <div className="text-xs text-muted-foreground mt-1">{consequence.impact}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground text-center py-4">
+                      No active issues
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           {/* Main Content Area */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className={`${isHost ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-6`}>
 
           {/* Current Event */}
           {currentPhase === 'events' && currentEvent && (
