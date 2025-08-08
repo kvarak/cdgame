@@ -13,6 +13,8 @@ interface Challenge {
   description: string;
   type: 'bug' | 'security' | 'performance' | 'feature';
   difficulty: 1 | 2 | 3;
+  required_strengths?: string[];
+  preferred_strengths?: string[];
 }
 
 interface SpectatorViewProps {
@@ -31,9 +33,45 @@ export const SpectatorView = ({
   const { gameSession, players } = useGameRoom(gameSessionId);
   const [hasVoted, setHasVoted] = useState(false);
   const [sprintState, setSprintState] = useState<any>(null);
-  const [isVotingPopupOpen, setIsVotingPopupOpen] = useState(false);
+  const [currentPlayerRole, setCurrentPlayerRole] = useState<string>('');
+  const [allChallenges, setAllChallenges] = useState<Challenge[]>([]);
+  const [playerStrengths, setPlayerStrengths] = useState<string[]>([]);
 
   const hostPlayer = players.find(p => p.isHost);
+  const currentPlayer = players.find(p => p.name === currentPlayerName);
+
+  // Load roles and tasks data
+  useEffect(() => {
+    const loadGameData = async () => {
+      try {
+        const [rolesResponse, tasksResponse] = await Promise.all([
+          fetch('/src/assets/roles.ndjson'),
+          fetch('/src/assets/tasks.ndjson')
+        ]);
+        
+        const rolesText = await rolesResponse.text();
+        const tasksText = await tasksResponse.text();
+        
+        const roles = rolesText.trim().split('\n').map(line => JSON.parse(line));
+        const tasks = tasksText.trim().split('\n').map(line => JSON.parse(line));
+        
+        setAllChallenges(tasks);
+        
+        // Set current player's role and strengths
+        if (currentPlayer) {
+          setCurrentPlayerRole(currentPlayer.role);
+          const roleData = roles.find(r => r.name === currentPlayer.role);
+          if (roleData) {
+            setPlayerStrengths(roleData.strengths);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading game data:', error);
+      }
+    };
+    
+    loadGameData();
+  }, [currentPlayer]);
 
   // Listen for sprint state changes
   useEffect(() => {
@@ -42,10 +80,6 @@ export const SpectatorView = ({
     const state = (gameSession as any).current_sprint_state;
     setSprintState(state);
     
-    // Show voting popup when voting becomes active
-    if (state.voting_active && !hasVoted) {
-      setIsVotingPopupOpen(true);
-    }
   }, [(gameSession as any)?.current_sprint_state, hasVoted]);
 
   // Real-time subscription to game session changes
@@ -68,10 +102,6 @@ export const SpectatorView = ({
             const state = payload.new.current_sprint_state;
             setSprintState(state);
             
-            // Show voting popup when voting becomes active
-            if (state.voting_active && !hasVoted) {
-              setIsVotingPopupOpen(true);
-            }
           }
         }
       )
@@ -97,7 +127,6 @@ export const SpectatorView = ({
       }
 
       setHasVoted(true);
-      setIsVotingPopupOpen(false);
     } catch (error) {
       console.error('Error submitting vote:', error);
     }
@@ -126,13 +155,16 @@ export const SpectatorView = ({
           </CardHeader>
         </Card>
 
-        {/* Secret Voting Section */}
+        {/* Player Role & Voting Section */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="w-5 h-5 text-primary" />
               Secret Voting & Game Interactions
             </CardTitle>
+            <CardDescription>
+              Role: {currentPlayerRole} • Strengths: {playerStrengths.join(', ')}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {sprintState?.voting_active ? (
@@ -143,24 +175,64 @@ export const SpectatorView = ({
                   </div>
                   <h3 className="text-lg font-semibold mb-2">Vote Submitted</h3>
                   <p className="text-muted-foreground">
-                    Waiting for other team members to vote...
+                    Waiting for other players to vote...
                   </p>
                 </div>
               ) : (
-                <div className="text-center py-6">
-                  <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Crown className="w-8 h-8 text-primary" />
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold mb-2">Next Priorities Voting</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Vote on which challenges are most and least important for next priorities
+                    </p>
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">Sprint Voting Active</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Vote on which challenges are most and least important for this sprint
-                  </p>
-                  <Button 
-                    onClick={() => setIsVotingPopupOpen(true)} 
-                    className="bg-gradient-primary"
-                  >
-                    Cast Your Vote
-                  </Button>
+                  
+                  {/* Inline Voting Interface */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Available Challenges:</h4>
+                    {sprintState.selected_challenges?.map((challengeId: string) => {
+                      const challenge = allChallenges.find(c => c.id === challengeId);
+                      if (!challenge) return null;
+                      
+                      const isRecommended = challenge.required_strengths?.some(strength => 
+                        playerStrengths.includes(strength)
+                      ) || challenge.preferred_strengths?.some(strength => 
+                        playerStrengths.includes(strength)
+                      );
+                      
+                      return (
+                        <div key={challengeId} className={`p-3 border rounded-lg ${isRecommended ? 'border-primary bg-primary/5' : ''}`}>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h5 className="font-medium">{challenge.title}</h5>
+                              <p className="text-sm text-muted-foreground mt-1">{challenge.description}</p>
+                              {isRecommended && (
+                                <Badge variant="outline" className="mt-2 text-primary border-primary">
+                                  Good match for your strengths
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    
+                    <div className="flex gap-2 pt-4">
+                      <Button 
+                        onClick={() => {
+                          // Simple voting - vote for first challenge as most important
+                          const firstChallenge = sprintState.selected_challenges?.[0];
+                          const lastChallenge = sprintState.selected_challenges?.[sprintState.selected_challenges.length - 1];
+                          if (firstChallenge && lastChallenge) {
+                            handleVoteSubmit(firstChallenge, lastChallenge);
+                          }
+                        }}
+                        className="bg-gradient-primary flex-1"
+                      >
+                        Submit Vote
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )
             ) : (
@@ -168,21 +240,21 @@ export const SpectatorView = ({
                 <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Target className="w-8 h-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Waiting for Sprint Planning</h3>
+                <h3 className="text-lg font-semibold mb-2">Waiting for Priority Planning</h3>
                 <p className="text-muted-foreground">
-                  The host is selecting challenges for the next sprint
+                  The host is selecting challenges for the next priorities
                 </p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Team Members */}
+        {/* Players */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
-              Team ({players.length})
+              Players ({players.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -202,22 +274,6 @@ export const SpectatorView = ({
           </CardContent>
         </Card>
 
-        {/* Voting Popup */}
-        <VotingPopup
-          isOpen={isVotingPopupOpen}
-          challenges={sprintState?.selected_challenges?.map((id: string) => {
-            // Mock challenges for now - in real app this would come from database
-            const mockChallenges = [
-              { id: '1', title: 'Critical Bug in Production', description: 'Memory leak causing crashes', type: 'bug' as const, difficulty: 3 as const },
-              { id: '2', title: 'Security Vulnerability', description: 'High-severity dependency issue', type: 'security' as const, difficulty: 2 as const },
-              { id: '3', title: 'New Feature Request', description: 'API endpoint for mobile app', type: 'feature' as const, difficulty: 2 as const },
-              { id: '4', title: 'Performance Degradation', description: 'Response times increased 40%', type: 'performance' as const, difficulty: 3 as const }
-            ];
-            return mockChallenges.find(c => c.id === id);
-          }).filter(Boolean) || []}
-          onVoteSubmit={handleVoteSubmit}
-          onClose={() => setIsVotingPopupOpen(false)}
-        />
       </div>
     </div>
   );

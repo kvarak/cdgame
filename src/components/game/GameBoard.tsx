@@ -222,7 +222,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
           
           toast({
             title: "Voting Started",
-            description: "Team members are voting on challenge priorities",
+            description: "Players are voting on next priorities",
           });
         } else {
           // Joiners show voting popup
@@ -428,14 +428,14 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Vote className="w-5 h-5 text-primary" />
-              Team Sprint - {isHost ? 'Host View' : 'Team Member'}
+              Next Priorities - {isHost ? 'Host View' : 'Player'}
             </CardTitle>
             <CardDescription>
               {waitingForVotes 
-                ? 'Waiting for team members to vote on challenge priorities...'
+                ? 'Waiting for players to vote on next priorities...'
                 : sprintPhase === 'planning' 
-                  ? 'Sprint Planning - Select challenges together' 
-                  : 'Sprint Execution - Work on selected challenges'
+                  ? 'Priority Planning - Select challenges together' 
+                  : 'Priority Execution - Work on selected challenges'
               }
             </CardDescription>
           </CardHeader>
@@ -443,23 +443,23 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
             {waitingForVotes ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Team Voting Progress</span>
+                  <span className="text-sm font-medium">Player Voting Progress</span>
                   <span className="text-sm text-muted-foreground">
-                    {Object.keys(playerVotes).length}/{players.filter(p => !p.name.includes('Host')).length} votes
+                    {Object.keys(playerVotes).length}/{players.filter(p => p.name !== currentPlayerName).length} votes
                   </span>
                 </div>
                 <Progress 
-                  value={(Object.keys(playerVotes).length / Math.max(players.filter(p => !p.name.includes('Host')).length, 1)) * 100} 
+                  value={(Object.keys(playerVotes).length / Math.max(players.filter(p => p.name !== currentPlayerName).length, 1)) * 100} 
                   className="h-3" 
                 />
                 <p className="text-sm text-muted-foreground">
-                  Team members are secretly voting on challenge priorities...
+                  Players are secretly voting on next priorities...
                 </p>
               </div>
             ) : (
               <div className="flex items-center gap-4">
                 <Button onClick={startSprint} className="bg-gradient-primary">
-                  {sprintPhase === 'planning' ? 'Start Sprint' : 'End Sprint'}
+                  {sprintPhase === 'planning' ? 'Start Priorities' : 'End Priorities'}
                 </Button>
                 {sprintPhase === 'planning' && (
                   <Badge variant="outline">
@@ -468,7 +468,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
                 )}
                 {sprintPhase === 'execution' && (
                   <Badge variant="secondary">
-                    Sprint in progress - all players working simultaneously
+                    Priorities in progress - all players working simultaneously
                   </Badge>
                 )}
               </div>
