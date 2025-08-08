@@ -57,7 +57,7 @@ export const SimpleGameSetup = () => {
   };
 
   const handleCreateGame = async () => {
-    if (!hostName.trim()) return;
+    if (!hostName.trim() || !user) return;
     
     setIsLoading(true);
     console.log('🚀 SIMPLE CREATE GAME - FIXED RLS INFINITE RECURSION');
@@ -304,15 +304,24 @@ export const SimpleGameSetup = () => {
               </div>
 
               <div className="pt-4">
-                <Button
-                  onClick={handleCreateGame}
-                  disabled={!hostName.trim() || isLoading}
-                  className="w-full bg-gradient-primary hover:opacity-90"
-                  size="lg"
-                >
-                  <Play className="w-5 h-5 mr-2" />
-                  {isLoading ? 'Creating Game...' : 'Create Game'}
-                </Button>
+                {!user ? (
+                  <div className="text-center space-y-3">
+                    <p className="text-muted-foreground text-sm">
+                      Sign in with GitHub to create and host games
+                    </p>
+                    <AuthButton />
+                  </div>
+                ) : (
+                  <Button
+                    onClick={handleCreateGame}
+                    disabled={!hostName.trim() || isLoading}
+                    className="w-full bg-gradient-primary hover:opacity-90"
+                    size="lg"
+                  >
+                    <Play className="w-5 h-5 mr-2" />
+                    {isLoading ? 'Creating Game...' : 'Create Game'}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

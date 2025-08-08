@@ -142,7 +142,7 @@ export const WaitingRoom = ({
               <div>
                 <CardTitle className="flex items-center gap-2 text-2xl">
                   <Users className="w-6 h-6 text-primary" />
-                  Game Waiting Room
+                  Game Lobby
                   {isHost && <Crown className="w-5 h-5 text-warning" />}
                 </CardTitle>
                 <CardDescription className="text-lg">
