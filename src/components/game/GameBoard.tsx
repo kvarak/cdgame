@@ -97,28 +97,28 @@ const PIPELINE_STAGES: PipelineStage[] = [
 
 const SAMPLE_CHALLENGES: Challenge[] = [
   {
-    id: '1',
+    id: 'critical_bug',
     title: 'Critical Bug in Production',
     description: 'A memory leak is causing application crashes. Requires immediate hotfix.',
     type: 'bug',
     difficulty: 3
   },
   {
-    id: '2',
+    id: 'security_vulnerability',
     title: 'Security Vulnerability',
     description: 'Dependency scanner found a high-severity vulnerability in a third-party library.',
     type: 'security',
     difficulty: 2
   },
   {
-    id: '3',
+    id: 'new_feature',
     title: 'New Feature Request',
     description: 'Product team requests a new API endpoint for mobile app integration.',
     type: 'feature',
     difficulty: 2
   },
   {
-    id: '4',
+    id: 'performance_degradation',
     title: 'Performance Degradation',
     description: 'Response times have increased by 40%. Database optimization needed.',
     type: 'performance',
@@ -138,7 +138,32 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
   const [pipelineStages, setPipelineStages] = useState(PIPELINE_STAGES);
-  const [challenges, setChallenges] = useState(SAMPLE_CHALLENGES);
+  const [loadedChallenges, setLoadedChallenges] = useState<Challenge[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+
+  // Load challenges from tasks.ndjson
+  useEffect(() => {
+    const loadChallenges = async () => {
+      try {
+        const response = await fetch('/tasks.ndjson');
+        const text = await response.text();
+        const tasks = text.trim().split('\n').map(line => JSON.parse(line));
+        setLoadedChallenges(tasks);
+      } catch (error) {
+        console.error('Error loading challenges:', error);
+        // Fallback to sample challenges if loading fails
+        setLoadedChallenges(SAMPLE_CHALLENGES);
+      }
+    };
+    loadChallenges();
+  }, []);
+  
+  // Update challenges when loaded challenges change
+  useEffect(() => {
+    if (loadedChallenges.length > 0) {
+      setChallenges(loadedChallenges);
+    }
+  }, [loadedChallenges]);
   const [gameScore, setGameScore] = useState(0);
   const [sprintCount, setSprintCount] = useState(1);
   const [gameStartTime] = useState(new Date());
