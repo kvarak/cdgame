@@ -162,14 +162,36 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   const maxTotalProgress = pipelineStages.reduce((sum, stage) => sum + stage.maxProgress, 0);
   const overallProgress = (totalProgress / maxTotalProgress) * 100;
 
-  const startSprint = () => {
+  const startSprint = async () => {
     if (sprintPhase === 'planning') {
       if (selectedChallenges.length > 0) {
         if (isHost) {
-          // Host waits for joiners to vote
+          // Host starts voting for joiners
           setWaitingForVotes(true);
+          
+          // Update sprint state in database for real-time sync
+          const sprintState = {
+            phase: 'voting',
+            selected_challenges: selectedChallenges,
+            voting_active: true,
+            votes: {}
+          };
+          
+          try {
+            const { error } = await supabase.rpc('update_sprint_state', {
+              p_session_id: gameSessionId,
+              p_sprint_state: sprintState
+            });
+            
+            if (error) {
+              console.error('Error updating sprint state:', error);
+            }
+          } catch (error) {
+            console.error('Error calling sprint state function:', error);
+          }
+          
           toast({
-            title: "Waiting for Team Votes",
+            title: "Voting Started",
             description: "Team members are voting on challenge priorities",
           });
         } else {
@@ -191,6 +213,23 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
       setPlayerVotes({});
       setSprintCount(prev => prev + 1);
       
+      // Update sprint state to planning
+      const sprintState = {
+        phase: 'planning',
+        selected_challenges: [],
+        voting_active: false,
+        votes: {}
+      };
+      
+      try {
+        await supabase.rpc('update_sprint_state', {
+          p_session_id: gameSessionId,
+          p_sprint_state: sprintState
+        });
+      } catch (error) {
+        console.error('Error updating sprint state:', error);
+      }
+      
       toast({
         title: "New Sprint Started",
         description: `Sprint ${sprintCount + 1} planning phase`,
@@ -198,28 +237,42 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
     }
   };
 
-  const handleVoteSubmit = (mostImportant: string, leastImportant: string) => {
-    const currentUserId = user?.id || currentPlayerName || 'anonymous';
-    setPlayerVotes(prev => ({
-      ...prev,
-      [currentUserId]: { most: mostImportant, least: leastImportant }
-    }));
-
-    // Check if all joiners have voted (exclude host)
-    const joiners = players.filter(p => !p.name.includes('Host')); // Simple host detection
-    const totalVotes = Object.keys(playerVotes).length + 1; // +1 for current vote
-    
-    if (totalVotes >= joiners.length) {
-      setSprintPhase('execution');
-      setWaitingForVotes(false);
-      toast({
-        title: "All Votes Received",
-        description: "Sprint execution phase has begun!",
+  const handleVoteSubmit = async (mostImportant: string, leastImportant: string) => {
+    try {
+      // Submit vote to database
+      const { error } = await supabase.rpc('submit_player_vote', {
+        p_session_id: gameSessionId,
+        p_player_name: currentPlayerName || 'anonymous',
+        p_most_important: mostImportant,
+        p_least_important: leastImportant
       });
-    } else {
+
+      if (error) {
+        console.error('Error submitting vote:', error);
+        toast({
+          title: "Vote Failed",
+          description: "Failed to submit your vote. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const currentUserId = user?.id || currentPlayerName || 'anonymous';
+      setPlayerVotes(prev => ({
+        ...prev,
+        [currentUserId]: { most: mostImportant, least: leastImportant }
+      }));
+
       toast({
         title: "Vote Submitted",
-        description: `Waiting for ${joiners.length - totalVotes} more votes`,
+        description: "Your vote has been recorded",
+      });
+    } catch (error) {
+      console.error('Error submitting vote:', error);
+      toast({
+        title: "Vote Failed",
+        description: "Failed to submit your vote. Please try again.",
+        variant: "destructive",
       });
     }
   };

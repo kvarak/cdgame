@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Crown, Eye, Users, Target } from "lucide-react";
 import { useGameRoom } from "@/hooks/useGameRoom";
 import { VotingPopup } from "./VotingPopup";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Challenge {
   id: string;
@@ -19,31 +20,88 @@ interface SpectatorViewProps {
   currentPlayerName: string;
   gameCode: string;
   onLeaveGame: () => void;
-  selectedChallenges?: Challenge[];
-  onVoteSubmit?: (mostImportant: string, leastImportant: string) => void;
-  showVotingPopup?: boolean;
-  onCloseVoting?: () => void;
 }
 
 export const SpectatorView = ({ 
   gameSessionId, 
   currentPlayerName, 
   gameCode,
-  onLeaveGame,
-  selectedChallenges = [],
-  onVoteSubmit,
-  showVotingPopup = false,
-  onCloseVoting
+  onLeaveGame
 }: SpectatorViewProps) => {
   const { gameSession, players } = useGameRoom(gameSessionId);
   const [hasVoted, setHasVoted] = useState(false);
+  const [sprintState, setSprintState] = useState<any>(null);
+  const [showVotingPopup, setShowVotingPopup] = useState(false);
 
   const hostPlayer = players.find(p => p.isHost);
   const currentPlayer = players.find(p => p.name === currentPlayerName);
 
-  const handleVoteSubmit = (mostImportant: string, leastImportant: string) => {
-    setHasVoted(true);
-    onVoteSubmit?.(mostImportant, leastImportant);
+  // Listen for sprint state changes
+  useEffect(() => {
+    if (!(gameSession as any)?.current_sprint_state) return;
+    
+    const state = (gameSession as any).current_sprint_state;
+    setSprintState(state);
+    
+    // Show voting popup when voting becomes active
+    if (state.voting_active && !hasVoted) {
+      setShowVotingPopup(true);
+    }
+  }, [(gameSession as any)?.current_sprint_state, hasVoted]);
+
+  // Real-time subscription to game session changes
+  useEffect(() => {
+    if (!gameSessionId) return;
+
+    const channel = supabase
+      .channel('game-session-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'game_sessions',
+          filter: `id=eq.${gameSessionId}`
+        },
+        (payload) => {
+          console.log('Game session updated:', payload.new);
+          if (payload.new.current_sprint_state) {
+            const state = payload.new.current_sprint_state;
+            setSprintState(state);
+            
+            // Show voting popup when voting becomes active
+            if (state.voting_active && !hasVoted) {
+              setShowVotingPopup(true);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [gameSessionId, hasVoted]);
+
+  const handleVoteSubmit = async (mostImportant: string, leastImportant: string) => {
+    try {
+      const { error } = await supabase.rpc('submit_player_vote', {
+        p_session_id: gameSessionId,
+        p_player_name: currentPlayerName,
+        p_most_important: mostImportant,
+        p_least_important: leastImportant
+      });
+
+      if (error) {
+        console.error('Error submitting vote:', error);
+        return;
+      }
+
+      setHasVoted(true);
+      setShowVotingPopup(false);
+    } catch (error) {
+      console.error('Error submitting vote:', error);
+    }
   };
 
   return (
@@ -78,7 +136,7 @@ export const SpectatorView = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {selectedChallenges.length > 0 ? (
+            {sprintState?.voting_active ? (
               hasVoted ? (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -99,7 +157,7 @@ export const SpectatorView = ({
                     Vote on which challenges are most and least important for this sprint
                   </p>
                   <Button 
-                    onClick={() => {/* Will be handled by popup */}} 
+                    onClick={() => setShowVotingPopup(true)} 
                     className="bg-gradient-primary"
                   >
                     Cast Your Vote
@@ -148,9 +206,18 @@ export const SpectatorView = ({
         {/* Voting Popup */}
         <VotingPopup
           isOpen={showVotingPopup}
-          challenges={selectedChallenges}
+          challenges={sprintState?.selected_challenges?.map((id: string) => {
+            // Mock challenges for now - in real app this would come from database
+            const mockChallenges = [
+              { id: '1', title: 'Critical Bug in Production', description: 'Memory leak causing crashes', type: 'bug' as const, difficulty: 3 as const },
+              { id: '2', title: 'Security Vulnerability', description: 'High-severity dependency issue', type: 'security' as const, difficulty: 2 as const },
+              { id: '3', title: 'New Feature Request', description: 'API endpoint for mobile app', type: 'feature' as const, difficulty: 2 as const },
+              { id: '4', title: 'Performance Degradation', description: 'Response times increased 40%', type: 'performance' as const, difficulty: 3 as const }
+            ];
+            return mockChallenges.find(c => c.id === id);
+          }).filter(Boolean) || []}
           onVoteSubmit={handleVoteSubmit}
-          onClose={onCloseVoting || (() => {})}
+          onClose={() => setShowVotingPopup(false)}
         />
       </div>
     </div>

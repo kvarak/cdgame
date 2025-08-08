@@ -283,6 +283,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      submit_player_vote: {
+        Args: {
+          p_session_id: string
+          p_player_name: string
+          p_most_important: string
+          p_least_important: string
+        }
+        Returns: boolean
+      }
       update_player_role: {
         Args: {
           p_session_id: string
