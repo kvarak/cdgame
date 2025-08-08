@@ -372,10 +372,10 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     setSelectedTasks(selected);
     setUnselectedTasks(unselected);
     
-    // Move to events phase
-    setCurrentPhase('events');
+    // Move to execution phase
+    setCurrentPhase('execution');
     await syncGameState({
-      phase: 'events',
+      phase: 'execution',
       selected_tasks: selected,
       unselected_tasks: unselected
     });
@@ -837,11 +837,6 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
                           <p className="text-sm text-success font-medium text-center">All votes received! Processing results...</p>
                         )}
                         
-                        {/* Debug info for facilitator */}
-                        <div className="text-xs text-muted-foreground">
-                          <p>Votes: {JSON.stringify(playerVotes)}</p>
-                          <p>Team: {teamMembers.map(p => p.name).join(', ')}</p>
-                        </div>
                       </div>
                       
                       {/* Show current voting options to facilitator */}
