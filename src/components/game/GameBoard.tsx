@@ -99,6 +99,9 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
   const [currentEvent, setCurrentEvent] = useState<GameEvent | null>(null);
   const [activeConsequences, setActiveConsequences] = useState<TaskConsequence[]>([]);
 
+  // Player roles and strengths
+  const [allRoles, setAllRoles] = useState<any[]>([]);
+
   // Voting state
   const [showVotingPopup, setShowVotingPopup] = useState(false);
   const [playerVotes, setPlayerVotes] = useState<{[playerName: string]: string}>({});
@@ -118,11 +121,26 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     changeFailureRate: 50
   });
 
-  // Get team members (players with roles) and current player
+  // Get team members (players with roles), current player, and voting progress
   const teamMembers = players.filter(player => player.role);
   const currentPlayer = players.find(player => player.name === currentPlayerName);
   const votesReceived = Object.keys(playerVotes).length;
   const totalVoters = teamMembers.length;
+
+  // Get player strengths based on role
+  const getPlayerStrengths = (playerRole: string): string[] => {
+    const roleData = allRoles.find(r => r.name === playerRole);
+    return roleData ? roleData.strengths : [];
+  };
+
+  // Check if a task is recommended for the current player
+  const isTaskRecommended = (task: Challenge, playerRole?: string): boolean => {
+    if (!playerRole) return false;
+    const strengths = getPlayerStrengths(playerRole);
+    return task.required_strengths?.some(strength => strengths.includes(strength)) ||
+           task.preferred_strengths?.some(strength => strengths.includes(strength)) || 
+           false;
+  };
 
 
   // Load game data
@@ -138,6 +156,17 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
       }
     };
 
+    const loadRoles = async () => {
+      try {
+        const response = await fetch('/roles.ndjson');
+        const text = await response.text();
+        const roles = text.trim().split('\n').map(line => JSON.parse(line));
+        setAllRoles(roles);
+      } catch (error) {
+        console.error('Error loading roles:', error);
+      }
+    };
+
     const loadEvents = async () => {
       try {
         const response = await fetch('/events.ndjson');
@@ -150,6 +179,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     };
 
     loadChallenges();
+    loadRoles();
     loadEvents();
   }, []);
 
@@ -181,16 +211,17 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
             const state = payload.new.current_sprint_state;
             
             // Update phase and tasks from facilitator
-            if (state.phase) {
+            if (state.phase && state.phase !== currentPhase) {
               setCurrentPhase(state.phase);
             }
-            if (state.current_tasks) {
+            if (state.current_tasks && JSON.stringify(state.current_tasks) !== JSON.stringify(currentTasks)) {
               setCurrentTasks(state.current_tasks);
             }
-            if (state.turn_number) {
+            if (state.turn_number && state.turn_number !== turnNumber) {
               setTurnNumber(state.turn_number);
             }
-            if (state.player_votes) {
+            if (state.player_votes && JSON.stringify(state.player_votes) !== JSON.stringify(playerVotes)) {
+              console.log('Updating player votes:', state.player_votes);
               setPlayerVotes(state.player_votes);
             }
           }
@@ -201,7 +232,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [gameSessionId, onEndGame]);
+  }, [gameSessionId, onEndGame, currentPhase, currentTasks, turnNumber, playerVotes]);
 
   // Sync game state to database when facilitator makes changes
   const syncGameState = async (updates: any) => {
@@ -843,32 +874,48 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
                       
                       {/* Inline Voting Interface */}
                       <div className="space-y-2">
-                        {currentTasks.map((task) => (
-                          <Card 
-                            key={task.id}
-                            className="cursor-pointer border transition-all hover:bg-primary/5 hover:border-primary/50"
-                            onClick={() => submitPlayerVote(task.id)}
-                          >
-                            <CardContent className="p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-medium text-sm">{task.title}</h4>
-                                    <Badge className={CHALLENGE_COLORS[task.type]} variant="outline">
-                                      {task.type}
-                                    </Badge>
-                                    <Badge variant="outline" className="text-xs">
-                                      Difficulty: {task.difficulty}
-                                    </Badge>
+                        {currentTasks.map((task) => {
+                          const isRecommended = isTaskRecommended(task, currentPlayer?.role);
+                          
+                          return (
+                            <Card 
+                              key={task.id}
+                              className={`cursor-pointer border transition-all hover:bg-primary/5 hover:border-primary/50 ${
+                                isRecommended ? 'border-success bg-success/5' : ''
+                              }`}
+                              onClick={() => submitPlayerVote(task.id)}
+                            >
+                              <CardContent className="p-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                      <h4 className="font-medium text-sm">{task.title}</h4>
+                                      <Badge className={CHALLENGE_COLORS[task.type]} variant="outline">
+                                        {task.type}
+                                      </Badge>
+                                      <Badge variant="outline" className="text-xs">
+                                        Difficulty: {task.difficulty}
+                                      </Badge>
+                                      {isRecommended && (
+                                        <Badge className="bg-success text-success-foreground text-xs">
+                                          ⭐ Good match for your role
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      {task.description}
+                                    </p>
+                                    {isRecommended && (
+                                      <p className="text-xs text-success font-medium mt-1">
+                                        This task aligns with your {currentPlayer?.role} strengths
+                                      </p>
+                                    )}
                                   </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    {task.description}
-                                  </p>
                                 </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        ))}
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
