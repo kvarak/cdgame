@@ -240,12 +240,22 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
               console.log('Updating player votes from database:', state.player_votes);
               setPlayerVotes(state.player_votes);
               
+              // Debug info for vote completion
+              console.log('Vote completion check:');
+              console.log('- isHost:', isHost);
+              console.log('- currentPhase:', currentPhase);
+              console.log('- votes count:', Object.keys(state.player_votes).length);
+              console.log('- teamMembers count:', teamMembers.length);
+              console.log('- teamMembers:', teamMembers);
+              
               // Check if voting should complete (only facilitator handles this)
               if (isHost && currentPhase === 'voting' && 
                   Object.keys(state.player_votes).length === teamMembers.length &&
                   Object.keys(state.player_votes).length > 0) {
                 console.log('All votes received, completing voting...');
                 completeVoting(state.player_votes);
+              } else {
+                console.log('Vote completion conditions not met');
               }
             }
           }
