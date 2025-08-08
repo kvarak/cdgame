@@ -18,6 +18,7 @@ import {
   Star,
   CalendarDays,
   Users,
+  Crown,
 } from "lucide-react";
 import { VotingPopup } from "./VotingPopup";
 
@@ -433,113 +434,94 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
           )}
         </div>
 
-        <div className="space-y-6">
-          {/* Business Metrics */}
-          <div>
-            <h3 className="text-lg font-semibold mb-3">Business Performance</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-primary" />
-                    <div>
-                      <div className="text-2xl font-bold text-primary">{businessMetrics.businessIncome}%</div>
-                      <div className="text-sm text-muted-foreground">Income</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-primary" />
-                    <div>
-                      <div className="text-2xl font-bold text-primary">{businessMetrics.securityScore}%</div>
-                      <div className="text-sm text-muted-foreground">Security Score</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-primary" />
-                    <div>
-                      <div className="text-2xl font-bold text-primary">{businessMetrics.performanceScore}%</div>
-                      <div className="text-sm text-muted-foreground">Performance</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Star className="w-5 h-5 text-primary" />
-                    <div>
-                      <div className="text-2xl font-bold text-primary">{businessMetrics.reputation}%</div>
-                      <div className="text-sm text-muted-foreground">Reputation</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* DevOps Metrics */}
-          <div>
-            <h3 className="text-lg font-semibold mb-3">DevOps Performance</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-primary">{devOpsMetrics.deploymentFrequency}</div>
-                  <div className="text-sm text-muted-foreground">Deploy Frequency</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-primary">{devOpsMetrics.leadTime}</div>
-                  <div className="text-sm text-muted-foreground">Lead Time</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-primary">{devOpsMetrics.mttr}</div>
-                  <div className="text-sm text-muted-foreground">MTTR</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-primary">{devOpsMetrics.changeFailureRate}</div>
-                  <div className="text-sm text-muted-foreground">Change Success</div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Active Consequences */}
-          {activeConsequences.length > 0 && (
-            <Card className="border-warning bg-warning/5">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-warning">
-                  <AlertTriangle className="w-5 h-5" />
-                  Active Consequences
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left Sidebar - Always Visible Performance */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Business Metrics - Compact */}
+            <Card className="bg-gradient-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Business
                 </CardTitle>
-                <CardDescription>
-                  Impact from previous unaddressed tasks
-                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {activeConsequences.map((consequence, index) => (
-                    <div key={index} className="p-3 rounded-lg bg-muted/50">
-                      <div className="font-medium text-sm">{consequence.description}</div>
-                      <div className="text-xs text-muted-foreground">{consequence.impact}</div>
-                    </div>
-                  ))}
+              <CardContent className="pt-0 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Income</span>
+                  <span className="text-sm font-bold text-primary">{businessMetrics.businessIncome}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Security</span>
+                  <span className="text-sm font-bold text-primary">{businessMetrics.securityScore}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Performance</span>
+                  <span className="text-sm font-bold text-primary">{businessMetrics.performanceScore}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Reputation</span>
+                  <span className="text-sm font-bold text-primary">{businessMetrics.reputation}%</span>
                 </div>
               </CardContent>
             </Card>
-          )}
+
+            {/* DevOps Metrics - Compact */}
+            <Card className="bg-gradient-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Zap className="w-4 h-4" />
+                  DevOps
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Deploy Freq</span>
+                  <span className="text-sm font-bold text-primary">{devOpsMetrics.deploymentFrequency}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Lead Time</span>
+                  <span className="text-sm font-bold text-primary">{devOpsMetrics.leadTime}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">MTTR</span>
+                  <span className="text-sm font-bold text-primary">{devOpsMetrics.mttr}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">Success Rate</span>
+                  <span className="text-sm font-bold text-primary">{devOpsMetrics.changeFailureRate}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Active Consequences - Always Visible */}
+            <Card className="border-warning bg-warning/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2 text-warning">
+                  <AlertTriangle className="w-4 h-4" />
+                  Active Issues
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                {activeConsequences.length > 0 ? (
+                  <div className="space-y-2">
+                    {activeConsequences.map((consequence, index) => (
+                      <div key={index} className="p-2 rounded bg-muted/30 border border-warning/20">
+                        <div className="text-xs font-medium text-warning">{consequence.description}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{consequence.impact}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground text-center py-4">
+                    No active issues
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content Area */}
+          <div className="lg:col-span-3 space-y-6">
 
           {/* Current Event */}
           {currentPhase === 'events' && currentEvent && (
@@ -562,42 +544,92 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
             </Card>
           )}
 
-          {/* Phase Controls */}
-          {currentPhase === 'start_turn' && (
-            <div className="mb-6">
-              <Button 
-                onClick={startVoting}
-                className="w-full bg-gradient-primary text-white hover:opacity-90"
-                size="lg"
-              >
-                Start Turn {turnNumber} - Select Priorities
-              </Button>
-            </div>
-          )}
+            {/* Facilitator Controls - Only visible to host */}
+            {isHost && (
+              <Card className="bg-gradient-primary/10 border-primary/20">
+                <CardHeader>
+                  <CardTitle className="text-lg font-medium flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-primary" />
+                    Facilitator Controls
+                  </CardTitle>
+                  <CardDescription>
+                    Advance the game through its phases
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {currentPhase === 'start_turn' && (
+                    <Button 
+                      onClick={startVoting}
+                      className="w-full bg-gradient-primary text-white hover:opacity-90"
+                      size="lg"
+                    >
+                      Start Team Voting - Turn {turnNumber}
+                    </Button>
+                  )}
 
-          {currentPhase === 'execution' && selectedTasks.length > 0 && (
-            <div className="mb-6">
-              <Button 
-                onClick={executeSelectedTasks}
-                className="w-full bg-gradient-primary text-white hover:opacity-90"
-                size="lg"
-              >
-                Execute Selected Tasks
-              </Button>
-            </div>
-          )}
+                  {currentPhase === 'execution' && selectedTasks.length > 0 && (
+                    <Button 
+                      onClick={executeSelectedTasks}
+                      className="w-full bg-gradient-primary text-white hover:opacity-90"
+                      size="lg"
+                    >
+                      Process Task Results
+                    </Button>
+                  )}
 
-          {currentPhase === 'end_turn' && (
-            <div className="mb-6">
-              <Button 
-                onClick={endTurn}
-                className="w-full bg-gradient-primary text-white hover:opacity-90"
-                size="lg"
-              >
-                Complete Turn {turnNumber}
-              </Button>
-            </div>
-          )}
+                  {currentPhase === 'end_turn' && (
+                    <Button 
+                      onClick={endTurn}
+                      className="w-full bg-gradient-primary text-white hover:opacity-90"
+                      size="lg"
+                    >
+                      Begin Turn {turnNumber + 1}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Team Member Status - What they should do */}
+            {!isHost && (
+              <Card className="bg-secondary/10 border-secondary/20">
+                <CardHeader>
+                  <CardTitle className="text-lg font-medium flex items-center gap-2">
+                    <Users className="w-5 h-5 text-secondary" />
+                    Team Member Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {currentPhase === 'start_turn' && (
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Waiting for facilitator to start voting...</p>
+                    </div>
+                  )}
+                  {currentPhase === 'voting' && (
+                    <div className="text-center">
+                      <p className="text-primary font-medium">🗳️ Voting is now open!</p>
+                      <p className="text-sm text-muted-foreground">Select the most important task to prioritize</p>
+                    </div>
+                  )}
+                  {currentPhase === 'events' && (
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Processing random event...</p>
+                    </div>
+                  )}
+                  {currentPhase === 'execution' && (
+                    <div className="text-center">
+                      <p className="text-primary font-medium">⚙️ Working on selected tasks</p>
+                      <p className="text-sm text-muted-foreground">Complete your assigned work</p>
+                    </div>
+                  )}
+                  {currentPhase === 'end_turn' && (
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Turn complete. Waiting for next turn...</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
           {/* Selected Tasks for Execution */}
           {currentPhase === 'execution' && selectedTasks.length > 0 && (
@@ -663,37 +695,38 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
             </Card>
           )}
 
-          {/* Team Roster */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" />
-                Team Roster
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-2">
-                {players.filter(player => player.role).map((player, index) => (
-                  <div key={player.id} className="flex items-center justify-between p-3 bg-card/50 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-muted-foreground">#{index + 1}</span>
-                      <span className="font-medium">{player.name}</span>
+            {/* Team Roster */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-primary" />
+                  Team Roster
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-2">
+                  {players.filter(player => player.role).map((player, index) => (
+                    <div key={player.id} className="flex items-center justify-between p-3 bg-card/50 rounded-lg border">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-muted-foreground">#{index + 1}</span>
+                        <span className="font-medium">{player.name}</span>
+                      </div>
+                      {player.role && (
+                        <Badge variant="secondary">
+                          {player.role}
+                        </Badge>
+                      )}
                     </div>
-                    {player.role && (
-                      <Badge variant="secondary">
-                        {player.role}
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-                {players.filter(player => player.role).length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No team members active
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  ))}
+                  {players.filter(player => player.role).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No team members active
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         <VotingPopup
