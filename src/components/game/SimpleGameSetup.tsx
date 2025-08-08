@@ -44,6 +44,7 @@ export const SimpleGameSetup = () => {
     for (let i = 0; i < 8; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
+    console.log('🎲 Generated game code:', result, 'Length:', result.length, 'Regex test:', /^[A-Z0-9]{8}$/.test(result));
     return result;
   };
 
@@ -84,6 +85,20 @@ export const SimpleGameSetup = () => {
       }
       
       console.log('✅ Database connection test passed');
+
+      // Test the exact data we're about to insert
+      const insertData = {
+        game_code: gameCode,
+        host_name: hostName,
+        status: 'waiting' as const
+      };
+      console.log('📝 About to insert:', insertData);
+      console.log('🔍 Validating game code format:', {
+        code: gameCode,
+        length: gameCode.length,
+        regexMatch: /^[A-Z0-9]{8}$/.test(gameCode),
+        chars: gameCode.split('')
+      });
 
       const { data: gameSession, error: sessionError } = await supabase
         .from('game_sessions')
