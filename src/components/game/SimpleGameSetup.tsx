@@ -60,12 +60,31 @@ export const SimpleGameSetup = () => {
     
     setIsLoading(true);
     console.log('🚀 SIMPLE CREATE GAME - NO COMPLEX CALLBACKS');
+    console.log('🔍 User auth state:', { user: user?.id, email: user?.email });
     
     try {
       const gameCode = generateGameCode();
       const finalHostRole = assignRandomRole(hostRole);
 
-      console.log('Creating game session...');
+      console.log('📝 Creating game session with data:', {
+        gameCode,
+        hostName,
+        finalHostRole
+      });
+
+      // First, test database connection
+      const { data: testQuery, error: testError } = await supabase
+        .from('game_sessions')
+        .select('count')
+        .limit(1);
+      
+      if (testError) {
+        console.error('❌ Database connection test failed:', testError);
+        throw new Error(`Database connection failed: ${testError.message}`);
+      }
+      
+      console.log('✅ Database connection test passed');
+
       const { data: gameSession, error: sessionError } = await supabase
         .from('game_sessions')
         .insert({
@@ -76,11 +95,19 @@ export const SimpleGameSetup = () => {
         .select()
         .single();
 
-      if (sessionError) throw new Error(sessionError.message);
-      console.log('✅ Game session created:', gameSession.id);
+      if (sessionError) {
+        console.error('❌ Session creation error:', sessionError);
+        throw new Error(`Failed to create game session: ${sessionError.message}`);
+      }
+      
+      if (!gameSession) {
+        throw new Error('Game session was not returned after creation');
+      }
+      
+      console.log('✅ Game session created successfully:', gameSession);
 
-      console.log('Adding host player...');
-      const { error: playerError } = await supabase
+      console.log('👤 Adding host player...');
+      const { data: playerData, error: playerError } = await supabase
         .from('game_players')
         .insert({
           game_session_id: gameSession.id,
@@ -89,10 +116,36 @@ export const SimpleGameSetup = () => {
           player_order: 0,
           is_host: true,
           status: 'joined'
-        });
+        })
+        .select()
+        .single();
 
-      if (playerError) throw new Error(playerError.message);
-      console.log('✅ Host player added');
+      if (playerError) {
+        console.error('❌ Player creation error:', playerError);
+        // Try to clean up the session if player creation fails
+        await supabase
+          .from('game_sessions')
+          .delete()
+          .eq('id', gameSession.id);
+        throw new Error(`Failed to add host player: ${playerError.message}`);
+      }
+      
+      console.log('✅ Host player added successfully:', playerData);
+
+      // Verify the data was actually saved
+      console.log('🔍 Verifying data persistence...');
+      const { data: verifySession, error: verifyError } = await supabase
+        .from('game_sessions')
+        .select('*')
+        .eq('id', gameSession.id)
+        .single();
+      
+      if (verifyError || !verifySession) {
+        console.error('❌ Session verification failed:', verifyError);
+        throw new Error('Game session was not properly saved to database');
+      }
+      
+      console.log('✅ Session verification passed:', verifySession);
 
       toast({
         title: "Game Created!",
@@ -100,7 +153,12 @@ export const SimpleGameSetup = () => {
       });
 
       console.log('🎯 DIRECT REDIRECT - bypassing all callbacks');
-      window.location.href = `/?mode=waiting&session=${gameSession.id}&host=true&name=${encodeURIComponent(hostName)}&code=${gameCode}`;
+      console.log('🔗 Redirect URL:', `/?mode=waiting&session=${gameSession.id}&host=true&name=${encodeURIComponent(hostName)}&code=${gameCode}`);
+      
+      // Add a small delay to ensure toast shows
+      setTimeout(() => {
+        window.location.href = `/?mode=waiting&session=${gameSession.id}&host=true&name=${encodeURIComponent(hostName)}&code=${gameCode}`;
+      }, 1000);
       
     } catch (error) {
       console.error('❌ Game creation failed:', error);

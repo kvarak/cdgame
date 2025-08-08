@@ -24,26 +24,40 @@ export interface GameSession {
 export const useGameRoom = (gameSessionId?: string) => {
   const [gameSession, setGameSession] = useState<GameSession | null>(null);
   const [players, setPlayers] = useState<GamePlayer[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with true to show loading initially
   const [error, setError] = useState<string | null>(null);
   const { logGameEvent } = useAuditLogger();
 
   // Fetch initial game state
   const fetchGameState = useCallback(async () => {
-    if (!gameSessionId) return;
+    if (!gameSessionId) {
+      setLoading(false);
+      return;
+    }
     
+    console.log('🔄 Fetching game state for session:', gameSessionId);
     setLoading(true);
     setError(null);
     
     try {
       // Fetch game session
+      console.log('📦 Fetching game session...');
       const { data: sessionData, error: sessionError } = await supabase
         .from('game_sessions')
         .select('*')
         .eq('id', gameSessionId)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single
       
-      if (sessionError) throw sessionError;
+      if (sessionError) {
+        console.error('❌ Session fetch error:', sessionError);
+        throw sessionError;
+      }
+      
+      if (!sessionData) {
+        throw new Error('Game session not found');
+      }
+      
+      console.log('✅ Game session found:', sessionData);
       
       setGameSession({
         id: sessionData.id,
@@ -56,6 +70,7 @@ export const useGameRoom = (gameSessionId?: string) => {
       });
       
       // Fetch players
+      console.log('👥 Fetching players...');
       const { data: playersData, error: playersError } = await supabase
         .from('game_players')
         .select('*')
@@ -63,7 +78,12 @@ export const useGameRoom = (gameSessionId?: string) => {
         .eq('status', 'joined')
         .order('player_order');
       
-      if (playersError) throw playersError;
+      if (playersError) {
+        console.error('❌ Players fetch error:', playersError);
+        throw playersError;
+      }
+      
+      console.log('✅ Players found:', playersData);
       
       setPlayers(playersData.map(p => ({
         id: p.id,
@@ -75,20 +95,25 @@ export const useGameRoom = (gameSessionId?: string) => {
       })));
       
     } catch (err: any) {
+      console.error('❌ Error fetching game state:', err);
       setError(err.message);
-      console.error('Error fetching game state:', err);
     } finally {
+      console.log('✅ Game state fetch complete');
       setLoading(false);
     }
   }, [gameSessionId]);
 
   // Set up real-time subscriptions
   useEffect(() => {
-    if (!gameSessionId) return;
+    if (!gameSessionId) {
+      setLoading(false);
+      return;
+    }
 
+    // Fetch initial state
     fetchGameState();
 
-    console.log('Setting up real-time subscriptions for game:', gameSessionId);
+    console.log('🔄 Setting up real-time subscriptions for game:', gameSessionId);
 
     // Subscribe to player changes with better event handling
     const playersChannel = supabase
@@ -102,12 +127,13 @@ export const useGameRoom = (gameSessionId?: string) => {
           filter: `game_session_id=eq.${gameSessionId}`
         },
         (payload) => {
-          console.log('Player change detected:', payload);
-          fetchGameState(); // Refetch on any player changes
+          console.log('👥 Player change detected:', payload);
+          // Debounce refetch to avoid too many calls
+          setTimeout(() => fetchGameState(), 100);
         }
       )
       .subscribe((status) => {
-        console.log('Players channel subscription status:', status);
+        console.log('👥 Players channel subscription status:', status);
       });
 
     // Subscribe to session changes
@@ -122,20 +148,20 @@ export const useGameRoom = (gameSessionId?: string) => {
           filter: `id=eq.${gameSessionId}`
         },
         (payload) => {
-          console.log('Session change detected:', payload);
-          fetchGameState(); // Refetch on session changes
+          console.log('🎮 Session change detected:', payload);
+          setTimeout(() => fetchGameState(), 100);
         }
       )
       .subscribe((status) => {
-        console.log('Session channel subscription status:', status);
+        console.log('🎮 Session channel subscription status:', status);
       });
 
     return () => {
-      console.log('Cleaning up real-time subscriptions');
+      console.log('🧹 Cleaning up real-time subscriptions');
       supabase.removeChannel(playersChannel);
       supabase.removeChannel(sessionChannel);
     };
-  }, [gameSessionId, fetchGameState]);
+  }, [gameSessionId]); // Remove fetchGameState from dependencies to prevent infinite loop
 
   // Join game as a new player (with role assignment)
   const joinGame = useCallback(async (gameCode: string, playerName: string, playerRole: GamePlayer['role'] = 'Developer') => {
