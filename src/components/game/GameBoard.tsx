@@ -95,8 +95,10 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   const [currentEvent, setCurrentEvent] = useState<GameEvent | null>(null);
   const [activeConsequences, setActiveConsequences] = useState<TaskConsequence[]>([]);
 
-  // UI state
+  // Voting state
   const [showVotingPopup, setShowVotingPopup] = useState(false);
+  const [playerVotes, setPlayerVotes] = useState<{[playerName: string]: string}>({});
+  const [hasVoted, setHasVoted] = useState(false);
 
   // Metrics
   const [businessMetrics, setBusinessMetrics] = useState({
@@ -112,6 +114,12 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
     mttr: 50,
     changeFailureRate: 50
   });
+
+  // Get team members (players with roles)
+  const teamMembers = players.filter(player => player.role);
+  const votesReceived = Object.keys(playerVotes).length;
+  const totalVoters = teamMembers.length;
+
 
   // Load game data
   useEffect(() => {
@@ -144,6 +152,8 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   // Start voting phase
   const startVoting = () => {
     setCurrentPhase('voting');
+    setPlayerVotes({});
+    setHasVoted(false);
     
     // Start with 3 random tasks for turn 1, increase for later turns
     const tasksToShow = Math.min(3 + (turnNumber - 1), 5);
@@ -153,14 +163,46 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
       .slice(0, tasksToShow);
     
     setCurrentTasks(randomTasks);
-    setShowVotingPopup(true);
+    
+    // Show voting popup only to team members (not facilitator)
+    if (!isHost && teamMembers.some(member => member.name === currentPlayerName)) {
+      setShowVotingPopup(true);
+    }
   };
 
-  // Handle voting completion
-  const completeVoting = (selectedTaskId: string) => {
+  // Handle individual player vote
+  const submitPlayerVote = (selectedTaskId: string) => {
+    if (!currentPlayerName || hasVoted) return;
+    
+    const newVotes = { ...playerVotes, [currentPlayerName]: selectedTaskId };
+    setPlayerVotes(newVotes);
+    setHasVoted(true);
     setShowVotingPopup(false);
     
-    // For now, just select the most voted task
+    toast({
+      title: "Vote Submitted",
+      description: "Your vote has been recorded!",
+    });
+    
+    // Check if all team members have voted
+    if (Object.keys(newVotes).length === teamMembers.length) {
+      completeVoting(newVotes);
+    }
+  };
+
+  // Handle voting completion when all votes are in
+  const completeVoting = (allVotes: {[playerName: string]: string}) => {
+    // Count votes for each task
+    const voteCount: {[taskId: string]: number} = {};
+    Object.values(allVotes).forEach(taskId => {
+      voteCount[taskId] = (voteCount[taskId] || 0) + 1;
+    });
+    
+    // Find the most voted task (or random if tie)
+    const maxVotes = Math.max(...Object.values(voteCount));
+    const topTasks = Object.keys(voteCount).filter(taskId => voteCount[taskId] === maxVotes);
+    const selectedTaskId = topTasks[Math.floor(Math.random() * topTasks.length)];
+    
     const selected = currentTasks.filter(task => task.id === selectedTaskId);
     const unselected = currentTasks.filter(task => task.id !== selectedTaskId);
     
@@ -566,6 +608,44 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
                       Start Team Voting - Turn {turnNumber}
                     </Button>
                   )}
+                  {currentPhase === 'voting' && (
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <p className="text-primary font-medium">Team Voting in Progress</p>
+                        <p className="text-sm text-muted-foreground">Waiting for team members to vote on priorities</p>
+                      </div>
+                      
+                      {/* Voting Progress Bar */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Votes Received</span>
+                          <span>{votesReceived} / {totalVoters}</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-2">
+                          <div 
+                            className="bg-primary h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${totalVoters > 0 ? (votesReceived / totalVoters) * 100 : 0}%` }}
+                          />
+                        </div>
+                        {votesReceived === totalVoters && totalVoters > 0 && (
+                          <p className="text-sm text-success font-medium text-center">All votes received! Processing results...</p>
+                        )}
+                      </div>
+                      
+                      {/* Show current voting options to facilitator */}
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium">Current Options:</p>
+                        {currentTasks.map((task) => (
+                          <div key={task.id} className="p-2 bg-muted/30 rounded text-sm">
+                            <span className="font-medium">{task.title}</span>
+                            <Badge className={`ml-2 ${CHALLENGE_COLORS[task.type]}`}>
+                              {task.type}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {currentPhase === 'execution' && selectedTasks.length > 0 && (
                     <Button 
@@ -605,10 +685,21 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
                       <p className="text-muted-foreground">Waiting for facilitator to start voting...</p>
                     </div>
                   )}
-                  {currentPhase === 'voting' && (
+                  {currentPhase === 'voting' && !hasVoted && teamMembers.some(member => member.name === currentPlayerName) && (
                     <div className="text-center">
-                      <p className="text-primary font-medium">🗳️ Voting is now open!</p>
+                      <p className="text-primary font-medium">🗳️ Your vote is needed!</p>
                       <p className="text-sm text-muted-foreground">Select the most important task to prioritize</p>
+                    </div>
+                  )}
+                  {currentPhase === 'voting' && hasVoted && (
+                    <div className="text-center">
+                      <p className="text-success font-medium">✅ Vote submitted!</p>
+                      <p className="text-sm text-muted-foreground">Waiting for other team members...</p>
+                    </div>
+                  )}
+                  {currentPhase === 'voting' && !teamMembers.some(member => member.name === currentPlayerName) && (
+                    <div className="text-center">
+                      <p className="text-muted-foreground">Waiting for team voting to complete...</p>
                     </div>
                   )}
                   {currentPhase === 'events' && (
@@ -733,9 +824,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
           isOpen={showVotingPopup}
           onClose={() => setShowVotingPopup(false)}
           challenges={currentTasks}
-          onVoteSubmit={(mostImportant) => {
-            completeVoting(mostImportant);
-          }}
+          onVoteSubmit={submitPlayerVote}
         />
       </div>
     </div>
