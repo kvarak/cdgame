@@ -194,10 +194,9 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     
     setCurrentTasks(randomTasks);
     
-    // Show voting popup to team members immediately
-    if (!isHost && teamMembers.some(member => member.name === currentPlayerName)) {
-      setShowVotingPopup(true);
-    }
+    console.log('Starting voting phase with tasks:', randomTasks);
+    console.log('Team members:', teamMembers);
+    console.log('Current player name:', currentPlayerName);
   };
 
   // Check if current player has voted
@@ -744,98 +743,121 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
                 <CardHeader>
                   <CardTitle className="text-lg font-medium flex items-center gap-2">
                     <Target className="w-5 h-5 text-primary" />
-                    Secret Voting & Game Interactions
+                    Team Member Dashboard
                   </CardTitle>
                   <CardDescription>
-                    Role: {currentPlayer?.role} • Your part in the team
+                    Role: {currentPlayer?.role} • Your participation in the team
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {currentPhase === 'start_turn' && (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Target className="w-8 h-8 text-muted-foreground" />
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Target className="w-6 h-6 text-muted-foreground" />
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">Waiting for Turn to Start</h3>
-                      <p className="text-muted-foreground">
+                      <h3 className="text-base font-semibold mb-2">Waiting for Turn to Start</h3>
+                      <p className="text-sm text-muted-foreground">
                         The facilitator will start the voting phase shortly
                       </p>
                     </div>
                   )}
                   
-                  {currentPhase === 'voting' && !hasVoted && teamMembers.some(member => member.name === currentPlayerName) && (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Target className="w-8 h-8 text-primary" />
+                  {currentPhase === 'voting' && !hasVoted && teamMembers.some(member => member.name === currentPlayerName) && currentTasks.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="text-center mb-4">
+                        <h3 className="text-base font-semibold mb-2">🗳️ Vote for Priority</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Select the most important task to prioritize this turn
+                        </p>
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">🗳️ Voting Open!</h3>
-                      <p className="text-muted-foreground mb-4">
-                        Select the most important task to prioritize this turn
-                      </p>
-                      <Button 
-                        onClick={() => setShowVotingPopup(true)}
-                        className="bg-gradient-primary"
-                      >
-                        Cast Your Vote
-                      </Button>
+                      
+                      {/* Inline Voting Interface */}
+                      <div className="space-y-2">
+                        {currentTasks.map((task) => (
+                          <Card 
+                            key={task.id}
+                            className="cursor-pointer border transition-all hover:bg-primary/5 hover:border-primary/50"
+                            onClick={() => submitPlayerVote(task.id)}
+                          >
+                            <CardContent className="p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h4 className="font-medium text-sm">{task.title}</h4>
+                                    <Badge className={CHALLENGE_COLORS[task.type]} variant="outline">
+                                      {task.type}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      Difficulty: {task.difficulty}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    {task.description}
+                                  </p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
                     </div>
                   )}
                   
                   {currentPhase === 'voting' && hasVoted && (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-2xl">✓</span>
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <span className="text-lg">✓</span>
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">Vote Submitted!</h3>
-                      <p className="text-muted-foreground">
+                      <h3 className="text-base font-semibold mb-2">Vote Submitted!</h3>
+                      <p className="text-sm text-muted-foreground">
                         Waiting for other team members to vote...
                       </p>
                     </div>
                   )}
                   
                   {currentPhase === 'voting' && !teamMembers.some(member => member.name === currentPlayerName) && (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Eye className="w-8 h-8 text-muted-foreground" />
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Eye className="w-6 h-6 text-muted-foreground" />
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">Spectating</h3>
-                      <p className="text-muted-foreground">
+                      <h3 className="text-base font-semibold mb-2">Spectating</h3>
+                      <p className="text-sm text-muted-foreground">
                         Watching team members vote on priorities
                       </p>
                     </div>
                   )}
                   
                   {currentPhase === 'events' && (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-warning/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Target className="w-8 h-8 text-warning" />
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 bg-warning/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Target className="w-6 h-6 text-warning" />
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">Processing Events</h3>
-                      <p className="text-muted-foreground">
+                      <h3 className="text-base font-semibold mb-2">Processing Events</h3>
+                      <p className="text-sm text-muted-foreground">
                         Handling random events that affect the team
                       </p>
                     </div>
                   )}
                   
                   {currentPhase === 'execution' && (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Target className="w-8 h-8 text-success" />
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Target className="w-6 h-6 text-success" />
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">⚙️ Execution Phase</h3>
-                      <p className="text-muted-foreground">
+                      <h3 className="text-base font-semibold mb-2">⚙️ Execution Phase</h3>
+                      <p className="text-sm text-muted-foreground">
                         Team is working on selected priorities
                       </p>
                     </div>
                   )}
                   
                   {currentPhase === 'end_turn' && (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Target className="w-8 h-8 text-muted-foreground" />
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 bg-muted/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <Target className="w-6 h-6 text-muted-foreground" />
                       </div>
-                      <h3 className="text-lg font-semibold mb-2">Turn Complete</h3>
-                      <p className="text-muted-foreground">
+                      <h3 className="text-base font-semibold mb-2">Turn Complete</h3>
+                      <p className="text-sm text-muted-foreground">
                         Waiting for next turn to begin
                       </p>
                     </div>
@@ -942,12 +964,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
           </div>
         </div>
 
-        <VotingPopup
-          isOpen={showVotingPopup}
-          onClose={() => setShowVotingPopup(false)}
-          challenges={currentTasks}
-          onVoteSubmit={submitPlayerVote}
-        />
+        {/* VotingPopup is no longer needed since voting is inline */}
       </div>
     </div>
   );
