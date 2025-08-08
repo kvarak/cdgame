@@ -407,14 +407,17 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     setSelectedTasks(selected);
     setUnselectedTasks(unselected);
     
-    // Move to execution phase
-    setCurrentPhase('execution');
+    // Move to events phase instead of execution
+    setCurrentPhase('events');
     await syncGameState({
-      phase: 'execution',
+      phase: 'events',
       selected_tasks: selected,
       unselected_tasks: unselected,
       current_tasks: currentTasks
     });
+    
+    // Start the events phase
+    startEvents();
     
     console.log('=== END COMPLETE VOTING DEBUG ===');
   };
@@ -888,7 +891,16 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
                         ))}
                       </div>
                     </div>
-                  )}
+                   )}
+
+                   {currentPhase === 'events' && (
+                     <div className="space-y-4">
+                       <div className="text-center">
+                         <p className="text-primary font-medium">Processing Random Event</p>
+                         <p className="text-sm text-muted-foreground">Waiting for event to be acknowledged</p>
+                       </div>
+                     </div>
+                   )}
 
                   
                   {/* Debug Info for Execution Button */}
@@ -1074,8 +1086,8 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
               </Card>
             )}
 
-          {/* Selected Tasks for Execution */}
-          {currentPhase === 'execution' && selectedTasks.length > 0 && (
+          {/* Selected Tasks for Execution - Only visible to facilitator */}
+          {isHost && currentPhase === 'execution' && selectedTasks.length > 0 && (
             <Card className="bg-gradient-card shadow-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
