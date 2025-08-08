@@ -15,7 +15,7 @@ import { generateRandomName, getDisplayName } from "@/utils/nameGenerator";
 interface Player {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
+  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Manager' | 'CEO' | 'Random';
 }
 
 const AVAILABLE_ROLES = [
@@ -28,6 +28,8 @@ const AVAILABLE_ROLES = [
   'Site Reliability Engineer'
 ] as const;
 
+const HOST_ROLES = ['Manager', 'CEO'] as const;
+
 export const SimpleGameSetup = () => {
   const [gameMode, setGameMode] = useState<'create' | 'join' | 'history'>('create');
   const { user } = useAuth();
@@ -37,7 +39,7 @@ export const SimpleGameSetup = () => {
   const defaultJoinName = user ? getDisplayName(user) : generateRandomName();
   
   const [hostName, setHostName] = useState(defaultHostName);
-  const [hostRole, setHostRole] = useState<Player['role']>('Random');
+  const [hostRole, setHostRole] = useState<Player['role']>('Manager');
   const [joinCode, setJoinCode] = useState('');
   const [joinPlayerName, setJoinPlayerName] = useState(defaultJoinName);
   const [joinPlayerRole, setJoinPlayerRole] = useState<Player['role']>('Random');
@@ -54,10 +56,14 @@ export const SimpleGameSetup = () => {
     return result;
   };
 
-  const assignRandomRole = (role: Player['role']): Player['role'] => {
+  const assignRandomRole = (role: Player['role'], isHost: boolean = false): Player['role'] => {
     if (role === 'Random') {
-      const nonRandomRoles = AVAILABLE_ROLES.slice(1);
-      return nonRandomRoles[Math.floor(Math.random() * nonRandomRoles.length)];
+      if (isHost) {
+        return HOST_ROLES[Math.floor(Math.random() * HOST_ROLES.length)];
+      } else {
+        const nonRandomRoles = AVAILABLE_ROLES.slice(1);
+        return nonRandomRoles[Math.floor(Math.random() * nonRandomRoles.length)];
+      }
     }
     return role;
   };
@@ -71,7 +77,7 @@ export const SimpleGameSetup = () => {
     
     try {
       const gameCode = generateGameCode();
-      const finalHostRole = assignRandomRole(hostRole);
+      const finalHostRole = hostRole === 'Random' ? HOST_ROLES[Math.floor(Math.random() * HOST_ROLES.length)] : hostRole;
 
       console.log('📝 Creating game session with data:', {
         gameCode,
@@ -296,6 +302,21 @@ export const SimpleGameSetup = () => {
                   value={hostName}
                   onChange={(e) => setHostName(e.target.value)}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="host-role">Your Role (Host)</Label>
+                <select
+                  id="host-role"
+                  value={hostRole}
+                  onChange={(e) => setHostRole(e.target.value as Player['role'])}
+                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="Random">Random Manager Role</option>
+                  {HOST_ROLES.map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
               </div>
 
 

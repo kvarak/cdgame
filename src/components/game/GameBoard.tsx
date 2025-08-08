@@ -8,24 +8,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuditLogger } from "@/hooks/useAuditLogger";
 import { 
-  Code, 
-  Shield, 
-  Rocket, 
-  BarChart3, 
-  Users, 
   Target,
   Clock,
   AlertTriangle,
   CheckCircle,
   GamepadIcon,
-  Vote
+  TrendingUp,
+  TrendingDown,
+  Shield,
+  Zap,
+  DollarSign,
+  Star
 } from "lucide-react";
 import { VotingPopup } from "./VotingPopup";
 
 interface Player {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
+  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Manager' | 'CEO' | 'Random';
 }
 
 interface GameBoardProps {
@@ -37,94 +37,15 @@ interface GameBoardProps {
   currentPlayerName?: string;
 }
 
-interface PipelineStage {
-  id: string;
-  name: string;
-  icon: React.ElementType;
-  progress: number;
-  maxProgress: number;
-  color: string;
-  description: string;
-}
-
 interface Challenge {
   id: string;
   title: string;
   description: string;
   type: 'bug' | 'security' | 'performance' | 'feature';
   difficulty: 1 | 2 | 3;
-  assignedPlayer?: string;
+  required_strengths?: string[];
+  preferred_strengths?: string[];
 }
-
-const PIPELINE_STAGES: PipelineStage[] = [
-  {
-    id: 'development',
-    name: 'Development',
-    icon: Code,
-    progress: 0,
-    maxProgress: 10,
-    color: 'bg-pipeline-dev text-pipeline-dev-foreground',
-    description: 'Write and commit code'
-  },
-  {
-    id: 'testing',
-    name: 'Testing',
-    icon: Shield,
-    progress: 0,
-    maxProgress: 8,
-    color: 'bg-pipeline-test text-pipeline-test-foreground',
-    description: 'Automated and manual testing'
-  },
-  {
-    id: 'deployment',
-    name: 'Deployment',
-    icon: Rocket,
-    progress: 0,
-    maxProgress: 6,
-    color: 'bg-pipeline-deploy text-pipeline-deploy-foreground',
-    description: 'Deploy to production'
-  },
-  {
-    id: 'monitoring',
-    name: 'Monitoring',
-    icon: BarChart3,
-    progress: 0,
-    maxProgress: 12,
-    color: 'bg-pipeline-monitor text-pipeline-monitor-foreground',
-    description: 'Monitor and maintain'
-  }
-];
-
-const SAMPLE_CHALLENGES: Challenge[] = [
-  {
-    id: 'critical_bug',
-    title: 'Critical Bug in Production',
-    description: 'A memory leak is causing application crashes. Requires immediate hotfix.',
-    type: 'bug',
-    difficulty: 3
-  },
-  {
-    id: 'security_vulnerability',
-    title: 'Security Vulnerability',
-    description: 'Dependency scanner found a high-severity vulnerability in a third-party library.',
-    type: 'security',
-    difficulty: 2
-  },
-  {
-    id: 'new_feature',
-    title: 'New Feature Request',
-    description: 'Product team requests a new API endpoint for mobile app integration.',
-    type: 'feature',
-    difficulty: 2
-  },
-  {
-    id: 'performance_degradation',
-    title: 'Performance Degradation',
-    description: 'Response times have increased by 40%. Database optimization needed.',
-    type: 'performance',
-    difficulty: 3
-  }
-];
 
 const CHALLENGE_COLORS = {
   bug: 'bg-error text-error-foreground',
@@ -137,9 +58,29 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   const { user } = useAuth();
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
-  const [pipelineStages, setPipelineStages] = useState(PIPELINE_STAGES);
   const [loadedChallenges, setLoadedChallenges] = useState<Challenge[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [currentChallenges, setCurrentChallenges] = useState<Challenge[]>([]);
+  const [turnNumber, setTurnNumber] = useState(1);
+  const [gameStartTime] = useState(new Date());
+  const [showVotingPopup, setShowVotingPopup] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<'planning' | 'voting' | 'execution' | 'complete'>('planning');
+  const [votes, setVotes] = useState<Record<string, { most_important: string; least_important: string }>>({});
+  const [votingResults, setVotingResults] = useState<{ challenge: Challenge; votes: number }[]>([]);
+  const [selectedChallenges, setSelectedChallenges] = useState<Challenge[]>([]);
+  const [completedChallenges, setCompletedChallenges] = useState<string[]>([]);
+  const [businessMetrics, setBusinessMetrics] = useState({
+    income: 100,
+    securityRisk: 0,
+    performanceScore: 100,
+    reputation: 100
+  });
+  const [devOpsMetrics, setDevOpsMetrics] = useState({
+    deploymentFrequency: 50,
+    leadTime: 50,
+    mttr: 50,
+    changeFailureRate: 50
+  });
 
   // Load challenges from tasks.ndjson
   useEffect(() => {
@@ -151,8 +92,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
         setLoadedChallenges(tasks);
       } catch (error) {
         console.error('Error loading challenges:', error);
-        // Fallback to sample challenges if loading fails
-        setLoadedChallenges(SAMPLE_CHALLENGES);
+        setLoadedChallenges([]);
       }
     };
     loadChallenges();
@@ -164,258 +104,154 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
       setChallenges(loadedChallenges);
     }
   }, [loadedChallenges]);
-  const [gameScore, setGameScore] = useState(0);
-  const [sprintCount, setSprintCount] = useState(1);
-  const [gameStartTime] = useState(new Date());
-  const [selectedChallenges, setSelectedChallenges] = useState<string[]>([]);
-  const [sprintPhase, setSprintPhase] = useState<'planning' | 'execution'>('planning');
-  const [showVotingPopup, setShowVotingPopup] = useState(false);
-  const [playerVotes, setPlayerVotes] = useState<Record<string, {most: string, least: string}>>({});
-  const [waitingForVotes, setWaitingForVotes] = useState(false);
 
-  // Listen for sprint state changes and vote updates
-  useEffect(() => {
-    if (!gameSessionId) return;
-
-    const channel = supabase
-      .channel('game-session-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'game_sessions',
-          filter: `id=eq.${gameSessionId}`
-        },
-        (payload: any) => {
-          if (payload.new && payload.new.current_sprint_state) {
-            const state = payload.new.current_sprint_state;
-            if (state.votes) {
-              setPlayerVotes(state.votes);
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [gameSessionId]);
-
-  // Log game start event when component mounts
-  useEffect(() => {
-    logGameEvent('start', gameSessionId, {
-      gameCode,
-      totalPlayers: players.length,
-      playerRoles: players.map(p => p.role),
-      startTime: gameStartTime.toISOString()
-    });
-  }, []);
-
-  const totalProgress = pipelineStages.reduce((sum, stage) => sum + stage.progress, 0);
-  const maxTotalProgress = pipelineStages.reduce((sum, stage) => sum + stage.maxProgress, 0);
-  const overallProgress = (totalProgress / maxTotalProgress) * 100;
-
-  const startSprint = async () => {
-    if (sprintPhase === 'planning') {
-      if (selectedChallenges.length > 0) {
-        if (isHost) {
-          // Host starts voting for joiners
-          setWaitingForVotes(true);
-          
-          // Update sprint state in database for real-time sync
-          const sprintState = {
-            phase: 'voting',
-            selected_challenges: selectedChallenges,
-            voting_active: true,
-            votes: {}
-          };
-          
-          try {
-            const { error } = await supabase.rpc('update_sprint_state', {
-              p_session_id: gameSessionId,
-              p_sprint_state: sprintState
-            });
-            
-            if (error) {
-              console.error('Error updating sprint state:', error);
-            }
-          } catch (error) {
-            console.error('Error calling sprint state function:', error);
-          }
-          
-          toast({
-            title: "Voting Started",
-            description: "Players are voting on next priorities",
-          });
-        } else {
-          // Joiners show voting popup
-          setShowVotingPopup(true);
-        }
-      } else {
-        toast({
-          title: "No Challenges Selected",
-          description: "Please select at least one challenge for this sprint",
-          variant: "destructive",
-        });
-      }
-    } else {
-      // End sprint - start new one
-      setSelectedChallenges([]);
-      setSprintPhase('planning');
-      setWaitingForVotes(false);
-      setPlayerVotes({});
-      setSprintCount(prev => prev + 1);
-      
-      // Update sprint state to planning
-      const sprintState = {
-        phase: 'planning',
-        selected_challenges: [],
-        voting_active: false,
-        votes: {}
-      };
-      
-      try {
-        await supabase.rpc('update_sprint_state', {
-          p_session_id: gameSessionId,
-          p_sprint_state: sprintState
-        });
-      } catch (error) {
-        console.error('Error updating sprint state:', error);
-      }
-      
-      toast({
-        title: "New Sprint Started",
-        description: `Sprint ${sprintCount + 1} planning phase`,
-      });
-    }
-  };
-
-  const handleVoteSubmit = async (mostImportant: string, leastImportant: string) => {
-    try {
-      // Submit vote to database
-      const { error } = await supabase.rpc('submit_player_vote', {
-        p_session_id: gameSessionId,
-        p_player_name: currentPlayerName || 'anonymous',
-        p_most_important: mostImportant,
-        p_least_important: leastImportant
-      });
-
-      if (error) {
-        console.error('Error submitting vote:', error);
-        toast({
-          title: "Vote Failed",
-          description: "Failed to submit your vote. Please try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const currentUserId = user?.id || currentPlayerName || 'anonymous';
-      setPlayerVotes(prev => ({
-        ...prev,
-        [currentUserId]: { most: mostImportant, least: leastImportant }
-      }));
-
-      toast({
-        title: "Vote Submitted",
-        description: "Your vote has been recorded",
-      });
-    } catch (error) {
-      console.error('Error submitting vote:', error);
-      toast({
-        title: "Vote Failed",
-        description: "Failed to submit your vote. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const selectChallengeForSprint = (challengeId: string) => {
-    if (sprintPhase !== 'planning') return;
-    
-    setSelectedChallenges(prev => {
-      if (prev.includes(challengeId)) {
-        // Deselect challenge
-        return prev.filter(id => id !== challengeId);
-      } else if (prev.length < 3) {
-        // Select challenge (max 3 per sprint)
-        return [...prev, challengeId];
-      } else {
-        toast({
-          title: "Sprint Full",
-          description: "Maximum 3 challenges per sprint",
-          variant: "destructive",
-        });
-        return prev;
-      }
-    });
-  };
-
-  const assignChallenge = (challengeId: string, playerId: string) => {
-    if (sprintPhase !== 'execution' || !selectedChallenges.includes(challengeId)) return;
-    
-    setChallenges(prev => 
-      prev.map(challenge => 
-        challenge.id === challengeId 
-          ? { ...challenge, assignedPlayer: playerId }
-          : challenge
-      )
+  const handleStartVoting = () => {
+    // Show only 5 random challenges for voting
+    const availableChallenges = challenges.filter(challenge => 
+      !completedChallenges.includes(challenge.id)
     );
+    const randomChallenges = availableChallenges
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 5);
+    
+    setCurrentChallenges(randomChallenges);
+    setShowVotingPopup(true);
+    setCurrentPhase('voting');
+    toast({
+      title: "Turn Started", 
+      description: "Select priorities for this turn",
+    });
   };
 
-  const completeChallenge = (challengeId: string) => {
-    const challenge = challenges.find(c => c.id === challengeId);
-    if (challenge) {
-      setGameScore(prev => prev + challenge.difficulty * 10);
-      setChallenges(prev => prev.filter(c => c.id !== challengeId));
-    }
+  const handleVotingComplete = (results: { challenge: Challenge; votes: number }[]) => {
+    setVotingResults(results);
+    setCurrentPhase('execution');
+    setShowVotingPopup(false);
+    
+    // Select top challenges based on votes
+    const sortedResults = results.sort((a, b) => b.votes - a.votes);
+    const topChallenges = sortedResults.slice(0, Math.min(3, sortedResults.length));
+    setSelectedChallenges(topChallenges.map(r => r.challenge));
+    
+    // Handle consequences for unselected challenges
+    handleUnselectedChallenges(currentChallenges, topChallenges.map(r => r.challenge));
+    
+    toast({
+      title: "Turn Priorities Set",
+      description: `Selected ${topChallenges.length} priorities for execution`,
+    });
   };
 
-  const saveGameHistory = async () => {
-    if (!user) return;
-
-    try {
-      const gameDuration = Math.round((new Date().getTime() - gameStartTime.getTime()) / (1000 * 60));
-      const completedStages = pipelineStages.filter(stage => stage.progress >= stage.maxProgress).length;
-      
-      const { error } = await supabase
-        .from('game_history')
-        .insert({
-          user_id: user.id,
-          game_session_id: gameSessionId,
-          final_score: gameScore,
-          turns_completed: sprintCount,
-          pipeline_stage_reached: completedStages,
-          game_duration_minutes: gameDuration,
-        });
-
-      if (error) {
-        console.error('Error saving game history:', error);
-      } else {
-        toast({
-          title: "Game Saved",
-          description: "Your game has been saved to your history!",
-        });
+  const handleUnselectedChallenges = (allChallenges: Challenge[], selected: Challenge[]) => {
+    const unselected = allChallenges.filter(c => !selected.find(s => s.id === c.id));
+    let newMetrics = { ...businessMetrics };
+    
+    unselected.forEach(challenge => {
+      switch (challenge.type) {
+        case 'bug':
+          // Bugs come back until fixed - no immediate consequence but they persist
+          break;
+        case 'feature':
+          // 50% chance to come back
+          if (Math.random() > 0.5) {
+            // Remove from challenges pool (won't come back)
+            setChallenges(prev => prev.filter(c => c.id !== challenge.id));
+          }
+          break;
+        case 'performance':
+          // Reduce income by 1-5%
+          const reduction = Math.floor(Math.random() * 5) + 1;
+          newMetrics.income = Math.max(0, newMetrics.income - reduction);
+          newMetrics.performanceScore = Math.max(0, newMetrics.performanceScore - 10);
+          break;
+        case 'security':
+          // Increase security risk
+          newMetrics.securityRisk = Math.min(100, newMetrics.securityRisk + 20);
+          break;
       }
-    } catch (error) {
-      console.error('Error saving game history:', error);
+    });
+    
+    setBusinessMetrics(newMetrics);
+  };
+
+  const handleEndTurn = () => {
+    // End of turn consequences
+    let newMetrics = { ...businessMetrics };
+    
+    // Security hack chance (10% per unresolved security issue)
+    if (newMetrics.securityRisk > 0 && Math.random() < 0.1 * (newMetrics.securityRisk / 20)) {
+      const hackDamage = Math.floor(Math.random() * 20) + 10;
+      newMetrics.income = Math.max(0, newMetrics.income - hackDamage);
+      newMetrics.reputation = Math.max(0, newMetrics.reputation - 15);
+      toast({
+        title: "Security Breach!",
+        description: `Company suffered a security incident. Income reduced by ${hackDamage}%`,
+        variant: "destructive"
+      });
     }
+    
+    setBusinessMetrics(newMetrics);
+    setTurnNumber(prev => prev + 1);
+    setCurrentPhase('planning');
+    setSelectedChallenges([]);
+    setVotingResults([]);
+    setVotes({});
+    
+    toast({
+      title: "Turn Complete",
+      description: `Starting Turn ${turnNumber + 1}`,
+    });
+  };
+
+  const handleCompleteChallenge = (challengeId: string) => {
+    setCompletedChallenges(prev => [...prev, challengeId]);
+    
+    // Improve metrics based on challenge type
+    const challenge = selectedChallenges.find(c => c.id === challengeId);
+    if (challenge) {
+      let newBusinessMetrics = { ...businessMetrics };
+      let newDevOpsMetrics = { ...devOpsMetrics };
+      
+      switch (challenge.type) {
+        case 'security':
+          newBusinessMetrics.securityRisk = Math.max(0, newBusinessMetrics.securityRisk - 20);
+          newBusinessMetrics.reputation = Math.min(100, newBusinessMetrics.reputation + 5);
+          break;
+        case 'performance':
+          newBusinessMetrics.performanceScore = Math.min(100, newBusinessMetrics.performanceScore + 15);
+          newDevOpsMetrics.mttr = Math.min(100, newDevOpsMetrics.mttr + 10);
+          break;
+        case 'bug':
+          newBusinessMetrics.reputation = Math.min(100, newBusinessMetrics.reputation + 3);
+          newDevOpsMetrics.changeFailureRate = Math.min(100, newDevOpsMetrics.changeFailureRate + 5);
+          break;
+        case 'feature':
+          newBusinessMetrics.income = Math.min(200, newBusinessMetrics.income + 5);
+          newDevOpsMetrics.deploymentFrequency = Math.min(100, newDevOpsMetrics.deploymentFrequency + 5);
+          break;
+      }
+      
+      setBusinessMetrics(newBusinessMetrics);
+      setDevOpsMetrics(newDevOpsMetrics);
+    }
+    
+    toast({
+      title: "Task Completed!",
+      description: "Great work! Metrics improved.",
+    });
   };
 
   const handleEndGame = async () => {
     // Log game end event
     await logGameEvent('end', gameSessionId, {
       gameCode,
-      finalScore: gameScore,
-      turnsCompleted: sprintCount,
+      turnsCompleted: turnNumber,
       gameDurationMinutes: Math.round((new Date().getTime() - gameStartTime.getTime()) / (1000 * 60)),
       totalPlayers: players.length,
-      pipelineProgress: pipelineStages.reduce((sum, stage) => sum + stage.progress, 0)
+      finalBusinessMetrics: businessMetrics,
+      finalDevOpsMetrics: devOpsMetrics
     });
     
-    await saveGameHistory();
     onEndGame();
   };
 
@@ -435,11 +271,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
               </Badge>
               <Badge variant="outline" className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
-                Sprint {sprintCount}
-              </Badge>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Target className="w-4 h-4" />
-                Score: {gameScore}
+                Turn {turnNumber}
               </Badge>
             </div>
           </div>
@@ -448,108 +280,168 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
           </Button>
         </div>
 
-        {/* Sprint Status */}
-        <Card className="mb-6 bg-gradient-card shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Vote className="w-5 h-5 text-primary" />
-              Next Priorities - {isHost ? 'Host View' : 'Player'}
-            </CardTitle>
-            <CardDescription>
-              {waitingForVotes 
-                ? 'Waiting for players to vote on next priorities...'
-                : sprintPhase === 'planning' 
-                  ? 'Priority Planning - Select challenges together' 
-                  : 'Priority Execution - Work on selected challenges'
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {waitingForVotes ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Player Voting Progress</span>
-                  <span className="text-sm text-muted-foreground">
-                    {Object.keys(playerVotes).length}/{players.filter(p => p.name !== currentPlayerName).length} votes
-                  </span>
-                </div>
-                <Progress 
-                  value={(Object.keys(playerVotes).length / Math.max(players.filter(p => p.name !== currentPlayerName).length, 1)) * 100} 
-                  className="h-3" 
-                />
-                <p className="text-sm text-muted-foreground">
-                  Players are secretly voting on next priorities...
-                </p>
-              </div>
-            ) : (
-              <div className="flex items-center gap-4">
-                <Button onClick={startSprint} className="bg-gradient-primary">
-                  {sprintPhase === 'planning' ? 'Start Priorities' : 'End Priorities'}
-                </Button>
-                {sprintPhase === 'planning' && (
-                  <Badge variant="outline">
-                    {selectedChallenges.length}/3 challenges selected
-                  </Badge>
-                )}
-                {sprintPhase === 'execution' && (
-                  <Badge variant="secondary">
-                    Priorities in progress - all players working simultaneously
-                  </Badge>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          {/* Business Metrics */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3">Business Performance</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-primary" />
+                    <div>
+                      <div className="text-2xl font-bold text-primary">{businessMetrics.income}%</div>
+                      <div className="text-sm text-muted-foreground">Income</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-error" />
+                    <div>
+                      <div className="text-2xl font-bold text-error">{businessMetrics.securityRisk}%</div>
+                      <div className="text-sm text-muted-foreground">Security Risk</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-primary" />
+                    <div>
+                      <div className="text-2xl font-bold text-primary">{businessMetrics.performanceScore}%</div>
+                      <div className="text-sm text-muted-foreground">Performance</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-5 h-5 text-primary" />
+                    <div>
+                      <div className="text-2xl font-bold text-primary">{businessMetrics.reputation}%</div>
+                      <div className="text-sm text-muted-foreground">Reputation</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Pipeline Stages */}
-          <div className="lg:col-span-2 space-y-6">
+          {/* DevOps Metrics */}
+          <div>
+            <h3 className="text-lg font-semibold mb-3">DevOps Performance</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-primary">{devOpsMetrics.deploymentFrequency}</div>
+                  <div className="text-sm text-muted-foreground">Deploy Frequency</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-primary">{devOpsMetrics.leadTime}</div>
+                  <div className="text-sm text-muted-foreground">Lead Time</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-primary">{devOpsMetrics.mttr}</div>
+                  <div className="text-sm text-muted-foreground">MTTR</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-2xl font-bold text-primary">{devOpsMetrics.changeFailureRate}</div>
+                  <div className="text-sm text-muted-foreground">Change Success</div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Turn Controls */}
+          {currentPhase === 'planning' && (
+            <div className="mb-6">
+              <Button 
+                onClick={handleStartVoting}
+                className="w-full bg-gradient-primary text-white hover:opacity-90"
+                size="lg"
+              >
+                Start Turn Planning
+              </Button>
+            </div>
+          )}
+
+          {currentPhase === 'execution' && selectedChallenges.length > 0 && (
+            <div className="mb-6">
+              <Button 
+                onClick={handleEndTurn}
+                className="w-full bg-gradient-primary text-white hover:opacity-90"
+                size="lg"
+              >
+                End Turn
+              </Button>
+            </div>
+          )}
+
+          {/* Selected Challenges for Execution */}
+          {currentPhase === 'execution' && selectedChallenges.length > 0 && (
             <Card className="bg-gradient-card shadow-card">
               <CardHeader>
-                <CardTitle>DevOps Pipeline Progress</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  Turn Execution - Active Priorities
+                </CardTitle>
                 <CardDescription>
-                  Work together to advance through all stages
+                  Work on the selected priorities
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium">Overall Progress</span>
-                    <span className="text-sm text-muted-foreground">
-                      {Math.round(overallProgress)}%
-                    </span>
-                  </div>
-                  <Progress value={overallProgress} className="h-3" />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {pipelineStages.map((stage) => {
-                    const Icon = stage.icon;
-                    const stageProgress = (stage.progress / stage.maxProgress) * 100;
+                <div className="space-y-4">
+                  {selectedChallenges.map((challenge) => {
+                    const isCompleted = completedChallenges.includes(challenge.id);
                     
                     return (
-                      <Card key={stage.id} className="border-border/50">
+                      <Card 
+                        key={challenge.id} 
+                        className={`border-border/50 ${isCompleted ? 'opacity-50' : ''}`}
+                      >
                         <CardContent className="p-4">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className={`p-2 rounded-lg ${stage.color}`}>
-                              <Icon className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <h3 className="font-semibold">{stage.name}</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {stage.description}
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="font-semibold">{challenge.title}</h4>
+                                <Badge className={CHALLENGE_COLORS[challenge.type]}>
+                                  {challenge.type}
+                                </Badge>
+                                <Badge variant="outline">
+                                  Difficulty: {challenge.difficulty}
+                                </Badge>
+                                {isCompleted && (
+                                  <Badge className="bg-success text-success-foreground">
+                                    Completed
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-3">
+                                {challenge.description}
                               </p>
+                              
+                              {!isCompleted && (
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleCompleteChallenge(challenge.id)}
+                                  className="bg-success hover:bg-success/90"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-1" />
+                                  Complete Task
+                                </Button>
+                              )}
                             </div>
-                          </div>
-                          
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm">Progress</span>
-                              <span className="text-sm font-medium">
-                                {stage.progress}/{stage.maxProgress}
-                              </span>
-                            </div>
-                            <Progress value={stageProgress} className="h-2" />
                           </div>
                         </CardContent>
                       </Card>
@@ -558,148 +450,46 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
                 </div>
               </CardContent>
             </Card>
-
-            {/* Active Challenges */}
-            <Card className="bg-gradient-card shadow-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-warning" />
-                  {sprintPhase === 'planning' ? 'Sprint Planning - Select Challenges' : 'Sprint Execution - Active Challenges'}
-                </CardTitle>
-                <CardDescription>
-                  {sprintPhase === 'planning' 
-                    ? 'Select up to 3 challenges for this sprint'
-                    : 'Work on the selected challenges and assign them to team members'
-                  }
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {challenges
-                    .filter(challenge => sprintPhase === 'planning' || selectedChallenges.includes(challenge.id))
-                    .map((challenge) => {
-                      const isSelected = selectedChallenges.includes(challenge.id);
-                      const canSelect = sprintPhase === 'planning' && selectedChallenges.length < 3;
-                      
-                      return (
-                        <Card 
-                          key={challenge.id} 
-                          className={`border-border/50 transition-all ${
-                            isSelected ? 'ring-2 ring-primary bg-primary/5' : ''
-                          } ${
-                            sprintPhase === 'planning' ? 'cursor-pointer hover:bg-muted/50' : ''
-                          }`}
-                          onClick={() => sprintPhase === 'planning' && selectChallengeForSprint(challenge.id)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <h4 className="font-semibold">{challenge.title}</h4>
-                                  <Badge className={CHALLENGE_COLORS[challenge.type]}>
-                                    {challenge.type}
-                                  </Badge>
-                                  <Badge variant="outline">
-                                    Difficulty: {challenge.difficulty}
-                                  </Badge>
-                                  {isSelected && (
-                                    <Badge className="bg-primary text-primary-foreground">
-                                      Selected
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-3">
-                                  {challenge.description}
-                                </p>
-                                
-                                {sprintPhase === 'execution' && isSelected && (
-                                  challenge.assignedPlayer ? (
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="secondary">
-                                        Assigned to {players.find(p => p.id === challenge.assignedPlayer)?.name}
-                                      </Badge>
-                                      <Button
-                                        size="sm"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          completeChallenge(challenge.id);
-                                        }}
-                                        className="bg-success hover:bg-success/90"
-                                      >
-                                        <CheckCircle className="w-4 h-4 mr-1" />
-                                        Complete
-                                      </Button>
-                                    </div>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        assignChallenge(challenge.id, players[0].id);
-                                      }}
-                                    >
-                                      Take Challenge
-                                    </Button>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  
-                  {sprintPhase === 'planning' && challenges.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <AlertTriangle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p>No challenges available</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          )}
 
           {/* Team Panel */}
-          <div className="space-y-6">
-            <Card className="bg-gradient-card shadow-card">
-              <CardHeader>
-                <CardTitle>Team Members</CardTitle>
-                <CardDescription>
-                  Your DevOps team working together
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {players.map((player, index) => (
-                    <div
-                      key={player.id}
-                      className="p-3 rounded-lg border border-border/50"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-semibold">{player.name}</h4>
-                          <p className="text-sm text-muted-foreground">{player.role}</p>
-                        </div>
+          <Card className="bg-gradient-card shadow-card">
+            <CardHeader>
+              <CardTitle>Team Members</CardTitle>
+              <CardDescription>
+                Your DevOps team working together
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {players.map((player) => (
+                  <div
+                    key={player.id}
+                    className="p-3 rounded-lg border border-border/50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold">{player.name}</h4>
+                        <p className="text-sm text-muted-foreground">{player.role}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Voting Popup - Only for joiners */}
-        {!isHost && (
-          <VotingPopup
-            isOpen={showVotingPopup}
-            challenges={challenges.filter(c => selectedChallenges.includes(c.id))}
-            onVoteSubmit={handleVoteSubmit}
-            onClose={() => setShowVotingPopup(false)}
-          />
-        )}
+        <VotingPopup
+          isOpen={showVotingPopup}
+          onClose={() => setShowVotingPopup(false)}
+          challenges={currentChallenges}
+          onVoteSubmit={(most, least) => {
+            // Simple vote handling for now
+            const results = currentChallenges.map(c => ({ challenge: c, votes: Math.floor(Math.random() * 10) }));
+            handleVotingComplete(results);
+          }}
+        />
       </div>
     </div>
   );

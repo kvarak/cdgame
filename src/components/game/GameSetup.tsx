@@ -19,7 +19,7 @@ import { AuthButton } from "@/components/auth/AuthButton";
 interface Player {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
+  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Manager' | 'CEO' | 'Random';
 }
 
 interface GameSetupProps {
@@ -38,6 +38,8 @@ const AVAILABLE_ROLES = [
   'Site Reliability Engineer'
 ] as const;
 
+const HOST_ROLES = ['Manager', 'CEO'] as const;
+
 const ROLE_COLORS = {
   'Random': 'bg-gradient-primary text-white',
   'Developer': 'bg-pipeline-dev text-pipeline-dev-foreground',
@@ -51,7 +53,7 @@ const ROLE_COLORS = {
 export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: GameSetupProps) => {
   const [gameMode, setGameMode] = useState<'create' | 'join'>('create');
   const [hostName, setHostName] = useState('');
-  const [hostRole, setHostRole] = useState<Player['role']>('Random');
+  const [hostRole, setHostRole] = useState<Player['role']>('Manager');
   const [joinCode, setJoinCode] = useState('');
   const [joinPlayerName, setJoinPlayerName] = useState('');
   const [joinPlayerRole, setJoinPlayerRole] = useState<Player['role']>('Random');

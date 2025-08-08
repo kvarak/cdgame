@@ -5,7 +5,7 @@ import { useAuditLogger } from './useAuditLogger';
 export interface GamePlayer {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
+  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Manager' | 'CEO' | 'Random';
   isHost: boolean;
   joinedAt: string;
   status: 'joined' | 'left' | 'kicked';

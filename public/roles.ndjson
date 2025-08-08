@@ -4,3 +4,5 @@
 {"id": "product_owner", "name": "Product Owner", "strengths": ["requirements", "prioritization", "stakeholder"]}
 {"id": "security_engineer", "name": "Security Engineer", "strengths": ["security", "compliance", "vulnerability"]}
 {"id": "site_reliability_engineer", "name": "Site Reliability Engineer", "strengths": ["reliability", "scalability", "incident"]}
+{"id": "manager", "name": "Manager", "strengths": ["coordination", "planning", "resource_allocation"]}
+{"id": "ceo", "name": "CEO", "strengths": ["strategy", "decision_making", "business_value"]}
