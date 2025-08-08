@@ -60,7 +60,7 @@ export const SimpleGameSetup = () => {
     if (!hostName.trim()) return;
     
     setIsLoading(true);
-    console.log('🚀 SIMPLE CREATE GAME - NO COMPLEX CALLBACKS');
+    console.log('🚀 SIMPLE CREATE GAME - FIXED RLS INFINITE RECURSION');
     console.log('🔍 User auth state:', { user: user?.id, email: user?.email });
     
     try {
@@ -73,8 +73,9 @@ export const SimpleGameSetup = () => {
         finalHostRole
       });
 
-      // First, test database connection
-      const { data: testQuery, error: testError } = await supabase
+      // Test database connection first
+      console.log('🔌 Testing database connection...');
+      const { data: testData, error: testError } = await supabase
         .from('game_sessions')
         .select('count')
         .limit(1);
@@ -86,20 +87,8 @@ export const SimpleGameSetup = () => {
       
       console.log('✅ Database connection test passed');
 
-      // Test the exact data we're about to insert
-      const insertData = {
-        game_code: gameCode,
-        host_name: hostName,
-        status: 'waiting' as const
-      };
-      console.log('📝 About to insert:', insertData);
-      console.log('🔍 Validating game code format:', {
-        code: gameCode,
-        length: gameCode.length,
-        regexMatch: /^[A-Z0-9]{8}$/.test(gameCode),
-        chars: gameCode.split('')
-      });
-
+      // Insert game session
+      console.log('📝 Inserting game session...');
       const { data: gameSession, error: sessionError } = await supabase
         .from('game_sessions')
         .insert({
@@ -121,6 +110,7 @@ export const SimpleGameSetup = () => {
       
       console.log('✅ Game session created successfully:', gameSession);
 
+      // Insert player
       console.log('👤 Adding host player...');
       const { data: playerData, error: playerError } = await supabase
         .from('game_players')
@@ -147,21 +137,6 @@ export const SimpleGameSetup = () => {
       
       console.log('✅ Host player added successfully:', playerData);
 
-      // Verify the data was actually saved
-      console.log('🔍 Verifying data persistence...');
-      const { data: verifySession, error: verifyError } = await supabase
-        .from('game_sessions')
-        .select('*')
-        .eq('id', gameSession.id)
-        .single();
-      
-      if (verifyError || !verifySession) {
-        console.error('❌ Session verification failed:', verifyError);
-        throw new Error('Game session was not properly saved to database');
-      }
-      
-      console.log('✅ Session verification passed:', verifySession);
-
       toast({
         title: "Game Created!",
         description: `Game room created with code: ${gameCode}`,
@@ -170,10 +145,8 @@ export const SimpleGameSetup = () => {
       console.log('🎯 DIRECT REDIRECT - bypassing all callbacks');
       console.log('🔗 Redirect URL:', `/?mode=waiting&session=${gameSession.id}&host=true&name=${encodeURIComponent(hostName)}&code=${gameCode}`);
       
-      // Add a small delay to ensure toast shows
-      setTimeout(() => {
-        window.location.href = `/?mode=waiting&session=${gameSession.id}&host=true&name=${encodeURIComponent(hostName)}&code=${gameCode}`;
-      }, 1000);
+      // Immediate redirect since DB operations completed successfully
+      window.location.href = `/?mode=waiting&session=${gameSession.id}&host=true&name=${encodeURIComponent(hostName)}&code=${gameCode}`;
       
     } catch (error) {
       console.error('❌ Game creation failed:', error);

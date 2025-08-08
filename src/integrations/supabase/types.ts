@@ -288,10 +288,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      user_can_access_game_session: {
-        Args: { session_id: string }
-        Returns: boolean
-      }
       validate_game_access: {
         Args: { session_id: string; player_name: string }
         Returns: boolean
