@@ -810,8 +810,8 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
           {/* Main Content Area */}
           <div className={`${isHost ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-6`}>
 
-          {/* Current Event */}
-          {currentPhase === 'events' && currentEvent && (
+          {/* Current Event - Only show to facilitator */}
+          {currentPhase === 'events' && currentEvent && isHost && (
             <Card className="border-warning bg-warning/5">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
