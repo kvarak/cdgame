@@ -28,20 +28,23 @@ export class TaskManager {
   selectTasksForVoting(turnNumber: number): Challenge[] {
     const state = this.gameEngine.getState();
     
-    // Start with 3 random tasks for turn 1, increase for later turns
-    const tasksToShow = Math.min(3 + (turnNumber - 1), 5);
+    // Include incomplete tasks from previous turns + new tasks
+    const incompleteTasks = state.inProgressTasks || [];
+    const newTasksNeeded = Math.min(3 + (turnNumber - 1), 5) - incompleteTasks.length;
+    
     const allAvailableTasks = [
       ...state.pendingTasks,
       ...this.availableChallenges.filter(c => 
-        !state.pendingTasks.some(p => p.id === c.id)
+        !state.pendingTasks.some(p => p.id === c.id) &&
+        !incompleteTasks.some(i => i.id === c.id)
       )
     ];
     
-    const randomTasks = allAvailableTasks
+    const newRandomTasks = allAvailableTasks
       .sort(() => Math.random() - 0.5)
-      .slice(0, tasksToShow);
+      .slice(0, Math.max(0, newTasksNeeded));
 
-    return randomTasks;
+    return [...incompleteTasks, ...newRandomTasks];
   }
 
   async submitVote(playerName: string, taskId: string): Promise<void> {
@@ -63,30 +66,50 @@ export class TaskManager {
 
   processVotingResults(votes: Record<string, string>): { selected: Challenge[], unselected: Challenge[] } {
     const state = this.gameEngine.getState();
+    const players = state.players.filter(p => p.role); // Only count players with roles
+    const totalPlayers = players.length;
     
-    // Count votes for each task
+    // Count votes for each task and calculate progress
     const voteCount: Record<string, number> = {};
-    Object.values(votes).forEach(taskId => {
-      voteCount[taskId] = (voteCount[taskId] || 0) + 1;
-    });
-
-    // Find the task with the most votes
-    let maxVotes = 0;
-    let selectedTaskId = '';
+    const roleVotes: Record<string, string[]> = {}; // Track which roles voted for each task
     
-    Object.entries(voteCount).forEach(([taskId, count]) => {
-      if (count > maxVotes) {
-        maxVotes = count;
-        selectedTaskId = taskId;
+    Object.entries(votes).forEach(([playerName, taskId]) => {
+      const player = players.find(p => p.name === playerName);
+      if (player) {
+        voteCount[taskId] = (voteCount[taskId] || 0) + 1;
+        if (!roleVotes[taskId]) roleVotes[taskId] = [];
+        roleVotes[taskId].push(player.role || '');
       }
     });
 
-    const selectedTask = state.currentTasks.find(task => task.id === selectedTaskId);
-    const unselectedTasks = state.currentTasks.filter(task => task.id !== selectedTaskId);
+    // Calculate progress for each voted task
+    const updatedTasks = state.currentTasks.map(task => {
+      const votes = voteCount[task.id] || 0;
+      const rolesVoted = roleVotes[task.id] || [];
+      
+      // Check if any voting roles have strengths matching this task
+      let effectiveVotes = votes;
+      rolesVoted.forEach(role => {
+        if (this.isTaskRecommended(task, role)) {
+          effectiveVotes += 1; // Double count (already counted once, add one more)
+        }
+      });
+      
+      const progressGain = (effectiveVotes / totalPlayers) * 100;
+      const currentProgress = task.progress || 0;
+      const newProgress = Math.min(100, currentProgress + progressGain);
+      
+      return { ...task, progress: newProgress };
+    });
+
+    // Split into completed and in-progress tasks
+    const completedTasks = updatedTasks.filter(task => (task.progress || 0) >= 100);
+    const inProgressTasks = updatedTasks.filter(task => (task.progress || 0) < 100 && (voteCount[task.id] || 0) > 0);
+    const untouchedTasks = updatedTasks.filter(task => !(voteCount[task.id] || 0));
 
     return {
-      selected: selectedTask ? [selectedTask] : [],
-      unselected: unselectedTasks
+      selected: completedTasks,
+      unselected: [...inProgressTasks, ...untouchedTasks]
     };
   }
 
@@ -188,7 +211,7 @@ export class TaskManager {
     if (!playerRole) return false;
 
     const roleRecommendations: Record<string, string[]> = {
-      'Developer': ['deployment', 'testing'],
+      'Developer': ['deployment', 'performance'],
       'DevOps Engineer': ['deployment', 'monitoring'],
       'Site Reliability Engineer': ['monitoring', 'performance'],
       'Security Engineer': ['security'],

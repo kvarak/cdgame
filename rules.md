@@ -42,13 +42,6 @@ Each player chooses a role with unique strengths that make them more effective a
 - **Strengths**: Reliability, Scalability, Incident Response
 - **Role**: The stability expert who keeps systems running when everything tries to break.
 
-### **Manager** 👥
-- **Strengths**: Coordination, Planning, Resource Allocation
-- **Role**: The orchestrator who keeps the team aligned and resources flowing efficiently.
-
-### **CEO** 💼
-- **Strengths**: Strategy, Decision Making, Business Value
-- **Role**: The visionary leader who makes high-stakes decisions that shape the company's future.
 
 ## Game Structure
 
@@ -119,19 +112,18 @@ The universe throws you a curveball. A random event occurs that can dramatically
 **Duration**: 2-3 minutes
 
 **What Happens**:
-Your team attempts to solve the chosen challenge. Success isn't guaranteed—it depends on having the right skills and a bit of luck.
+Your team works on ALL voted tasks simultaneously. Each vote contributes progress toward task completion.
 
 **Execution Mechanics**:
-1. **Skill Matching**: Check if your team has the required strengths
-2. **Difficulty Assessment**: Harder challenges are riskier but more rewarding
-3. **Role Effectiveness**: Players with relevant strengths contribute more
-4. **Outcome Calculation**: Success, partial success, or failure affects your metrics
+1. **Progress Calculation**: Each vote = 1/x progress (where x = number of players)
+2. **Role Effectiveness**: Players voting for tasks matching their strengths count as double progress
+3. **Task Completion**: Tasks reaching 100% progress are completed and provide benefits
+4. **Incomplete Tasks**: Tasks not completed remain in the voting pool for next turn
 
-**Success Factors**:
-- **Required Strengths**: Must have these or face significant penalties
-- **Preferred Strengths**: Bonus points if you have these covered
-- **Team Coordination**: Better results when roles complement each other
-- **Risk vs. Reward**: Higher difficulty = higher potential gains/losses
+**Progress Examples**:
+- 4 players, 1 task gets 3 votes: 3/4 = 75% progress (carries over)
+- 4 players, 2 votes from roles with matching strengths: 4/4 = 100% (completed!)
+- Multiple tasks can be worked on simultaneously based on vote distribution
 
 ## Winning Conditions
 

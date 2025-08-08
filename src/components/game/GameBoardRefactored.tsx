@@ -92,7 +92,25 @@ export const GameBoardRefactored = ({
 
   const handleCompleteVoting = async () => {
     if (!isHost) return;
-    await phaseManager.completeVoting(gameState.playerVotes);
+    
+    const state = gameEngine.getState();
+    const { selected, unselected } = taskManager.processVotingResults(state.playerVotes);
+    
+    // Split unselected into in-progress and truly unselected
+    const inProgressTasks = unselected.filter(task => (task.progress || 0) > 0);
+    const trulyUnselected = unselected.filter(task => (task.progress || 0) === 0);
+    
+    // Apply consequences for tasks that had no progress this turn
+    taskManager.applyTaskConsequences(trulyUnselected);
+    
+    // Update game state with selected and in-progress tasks
+    gameEngine.updateState({ 
+      selectedTasks: selected,
+      unselectedTasks: trulyUnselected,
+      inProgressTasks: inProgressTasks
+    });
+    
+    await phaseManager.completeVoting(state.playerVotes);
   };
 
   const handleAcknowledgeEvent = () => {

@@ -8,6 +8,7 @@ export interface Challenge {
   description: string;
   type: 'deployment' | 'security' | 'performance' | 'monitoring' | 'testing';
   difficulty: number;
+  progress?: number; // Track completion progress (0-100)
   consequences?: string[];
   businessImpact?: {
     income?: number;
@@ -64,6 +65,7 @@ export interface GameState {
   selectedTasks: Challenge[];
   unselectedTasks: Challenge[];
   pendingTasks: Challenge[];
+  inProgressTasks: Challenge[]; // Tasks being worked on
   playerVotes: Record<string, string>;
   
   // Events
@@ -95,6 +97,7 @@ export class GameStateEngine {
       selectedTasks: [],
       unselectedTasks: [],
       pendingTasks: [],
+      inProgressTasks: [],
       playerVotes: {},
       currentEvent: null,
       businessMetrics: {

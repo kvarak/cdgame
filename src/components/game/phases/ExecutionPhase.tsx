@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Target } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { CheckCircle, Target, Clock } from "lucide-react";
 import { GameState, Challenge } from "@/lib/gameEngine/GameStateEngine";
 
 const CHALLENGE_COLORS: Record<string, string> = {
@@ -19,7 +20,8 @@ interface ExecutionPhaseProps {
 }
 
 export const ExecutionPhase = ({ gameState, onCompleteTask, onEndTurn }: ExecutionPhaseProps) => {
-  const { selectedTasks, isHost } = gameState;
+  const { selectedTasks, inProgressTasks = [], isHost } = gameState;
+  const allWorkingTasks = [...selectedTasks, ...inProgressTasks];
 
   if (isHost) {
     return (
@@ -31,12 +33,12 @@ export const ExecutionPhase = ({ gameState, onCompleteTask, onEndTurn }: Executi
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {selectedTasks.length === 0 ? (
+          {allWorkingTasks.length === 0 ? (
             <div className="text-center py-6">
               <div className="p-4 bg-warning/10 border border-warning/20 rounded mb-4">
-                <p className="text-warning font-medium">No tasks were selected!</p>
+                <p className="text-warning font-medium">No tasks were voted on!</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  This may indicate a voting issue. Check the vote completion logic.
+                  Team didn't vote on any tasks this turn.
                 </p>
               </div>
               <Button onClick={onEndTurn} variant="outline">
@@ -46,21 +48,23 @@ export const ExecutionPhase = ({ gameState, onCompleteTask, onEndTurn }: Executi
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground mb-4">
-                Mark tasks as completed when the team finishes them
+                Team is working on voted tasks. Mark completed tasks as done.
               </p>
               
+              {/* Completed Tasks */}
               {selectedTasks.map((task) => (
                 <Card key={task.id} className="border-success bg-success/5">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle className="w-4 h-4 text-success" />
                           <h4 className="font-medium">{task.title}</h4>
                           <Badge className={CHALLENGE_COLORS[task.type]} variant="outline">
                             {task.type}
                           </Badge>
-                          <Badge variant="outline">
-                            Difficulty: {task.difficulty}
+                          <Badge variant="outline" className="bg-success/20">
+                            Completed
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">{task.description}</p>
@@ -71,8 +75,32 @@ export const ExecutionPhase = ({ gameState, onCompleteTask, onEndTurn }: Executi
                         size="sm"
                       >
                         <CheckCircle className="w-4 h-4 mr-2" />
-                        Complete
+                        Apply Results
                       </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {/* In Progress Tasks */}
+              {inProgressTasks.map((task) => (
+                <Card key={task.id} className="border-primary/30 bg-primary/5">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Clock className="w-4 h-4 text-primary" />
+                          <h4 className="font-medium">{task.title}</h4>
+                          <Badge className={CHALLENGE_COLORS[task.type]} variant="outline">
+                            {task.type}
+                          </Badge>
+                          <Badge variant="outline">
+                            {Math.round(task.progress || 0)}% Progress
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2">{task.description}</p>
+                        <Progress value={task.progress || 0} className="w-full h-2" />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -107,9 +135,9 @@ export const ExecutionPhase = ({ gameState, onCompleteTask, onEndTurn }: Executi
             Working on the selected task(s)
           </p>
           
-          {selectedTasks.length === 0 ? (
+          {allWorkingTasks.length === 0 ? (
             <div className="p-3 bg-warning/10 rounded border border-warning/20">
-              <p className="text-warning font-medium text-sm">No tasks selected</p>
+              <p className="text-warning font-medium text-sm">No tasks being worked on</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Waiting for facilitator to end turn
               </p>
@@ -119,12 +147,32 @@ export const ExecutionPhase = ({ gameState, onCompleteTask, onEndTurn }: Executi
               {selectedTasks.map((task) => (
                 <div key={task.id} className="p-3 bg-success/10 rounded border border-success/20">
                   <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle className="w-3 h-3 text-success" />
                     <h4 className="font-medium text-sm">{task.title}</h4>
                     <Badge className={CHALLENGE_COLORS[task.type]} variant="outline">
                       {task.type}
                     </Badge>
+                    <Badge variant="outline" className="bg-success/20 text-xs">
+                      Completed
+                    </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">{task.description}</p>
+                </div>
+              ))}
+              {inProgressTasks.map((task) => (
+                <div key={task.id} className="p-3 bg-primary/10 rounded border border-primary/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-3 h-3 text-primary" />
+                    <h4 className="font-medium text-sm">{task.title}</h4>
+                    <Badge className={CHALLENGE_COLORS[task.type]} variant="outline">
+                      {task.type}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {Math.round(task.progress || 0)}% Progress
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-1">{task.description}</p>
+                  <Progress value={task.progress || 0} className="w-full h-1" />
                 </div>
               ))}
             </div>
