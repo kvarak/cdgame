@@ -222,9 +222,11 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
             
             // Update phase and tasks from facilitator
             if (state.phase) {
+              console.log('Updating phase from', currentPhase, 'to', state.phase);
               setCurrentPhase(state.phase);
             }
             if (state.current_tasks) {
+              console.log('Updating current tasks:', state.current_tasks);
               setCurrentTasks(state.current_tasks);
             }
             if (state.selected_tasks) {
@@ -965,8 +967,21 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
                       </p>
                     </div>
                   )}
-                  
-                  {currentPhase === 'voting' && !hasVoted && teamMembers.some(member => member.name === currentPlayerName) && currentTasks.length > 0 && (
+                   {/* Debug voting conditions */}
+                   {currentPhase === 'voting' && (
+                     <div className="mb-4 p-2 bg-muted/20 rounded text-xs">
+                       <p>Voting Debug:</p>
+                       <p>- currentPhase: {currentPhase}</p>
+                       <p>- hasVoted: {hasVoted.toString()}</p>
+                       <p>- currentPlayerName: {currentPlayerName}</p>
+                       <p>- currentTasks.length: {currentTasks.length}</p>
+                       <p>- is team member: {teamMembers.some(member => member.name === currentPlayerName).toString()}</p>
+                       <p>- Team members: {teamMembers.map(m => m.name).join(', ')}</p>
+                       <p>- All conditions met: {(currentPhase === 'voting' && !hasVoted && teamMembers.some(member => member.name === currentPlayerName) && currentTasks.length > 0).toString()}</p>
+                     </div>
+                   )}
+                   
+                   {currentPhase === 'voting' && !hasVoted && teamMembers.some(member => member.name === currentPlayerName) && currentTasks.length > 0 && (
                     <div className="space-y-4">
                       <div className="text-center mb-4">
                         <h3 className="text-base font-semibold mb-2">🗳️ Vote for Priority</h3>
