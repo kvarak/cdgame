@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { SimpleGameSetup } from "@/components/game/SimpleGameSetup";
-import { GameBoard } from "@/components/game/GameBoard";
+import { GameBoardRefactored } from "@/components/game/GameBoardRefactored";
 import { GameHistory } from "@/components/game/GameHistory";
 import { WaitingRoom } from "@/components/game/WaitingRoom";
 import { SpectatorView } from "@/components/game/SpectatorView";
@@ -166,7 +166,7 @@ const Index = () => {
   if (gameState === 'playing') {
     // Both host and team members use the same GameBoard component
     // The GameBoard will handle different views based on isHost prop
-    return <GameBoard 
+    return <GameBoardRefactored 
       players={players} 
       gameCode={gameCode} 
       gameSessionId={gameSessionId} 
