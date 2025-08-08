@@ -127,6 +127,15 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
   const votesReceived = Object.keys(playerVotes).length;
   const totalVoters = teamMembers.length;
 
+  // Add logging to debug progress bar
+  console.log('Progress bar debug:', { 
+    votesReceived, 
+    totalVoters, 
+    playerVotes, 
+    teamMembers: teamMembers.map(p => p.name),
+    currentPhase 
+  });
+
   // Get player strengths based on role
   const getPlayerStrengths = (playerRole: string): string[] => {
     const roleData = allRoles.find(r => r.name === playerRole);
@@ -209,19 +218,21 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
           // Sync game state for all players
           if (payload.new.current_sprint_state) {
             const state = payload.new.current_sprint_state;
+            console.log('Received state update:', state);
             
             // Update phase and tasks from facilitator
-            if (state.phase && state.phase !== currentPhase) {
+            if (state.phase) {
               setCurrentPhase(state.phase);
             }
-            if (state.current_tasks && JSON.stringify(state.current_tasks) !== JSON.stringify(currentTasks)) {
+            if (state.current_tasks) {
               setCurrentTasks(state.current_tasks);
             }
-            if (state.turn_number && state.turn_number !== turnNumber) {
+            if (state.turn_number) {
               setTurnNumber(state.turn_number);
             }
-            if (state.player_votes && JSON.stringify(state.player_votes) !== JSON.stringify(playerVotes)) {
-              console.log('Updating player votes:', state.player_votes);
+            if (state.player_votes) {
+              console.log('Updating player votes from database:', state.player_votes);
+              console.log('Current local votes:', playerVotes);
               setPlayerVotes(state.player_votes);
             }
           }
@@ -232,7 +243,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [gameSessionId, onEndGame, currentPhase, currentTasks, turnNumber, playerVotes]);
+  }, [gameSessionId, onEndGame]);
 
   // Sync game state to database when facilitator makes changes
   const syncGameState = async (updates: any) => {
@@ -241,16 +252,21 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     try {
       const currentState = {
         phase: currentPhase,
-        current_tasks: currentTasks,
+        current_tasks: JSON.parse(JSON.stringify(currentTasks)), // Convert to JSON
         turn_number: turnNumber,
         player_votes: playerVotes,
         ...updates
       };
       
+      // Convert any Challenge objects to plain JSON
+      if (updates.current_tasks) {
+        currentState.current_tasks = JSON.parse(JSON.stringify(updates.current_tasks));
+      }
+      
       const { error } = await supabase
         .from('game_sessions')
         .update({ 
-          current_sprint_state: currentState,
+          current_sprint_state: currentState as any,
           updated_at: new Date().toISOString()
         })
         .eq('id', gameSessionId);
@@ -299,15 +315,37 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     const newVotes = { ...playerVotes, [currentPlayerName]: selectedTaskId };
     setPlayerVotes(newVotes);
     
+    console.log('Player voted:', currentPlayerName, 'for task:', selectedTaskId);
+    console.log('New votes state:', newVotes);
+    
     toast({
       title: "Vote Submitted",
       description: "Your vote has been recorded!",
     });
     
-    // Sync votes to database
-    await syncGameState({
-      player_votes: newVotes
-    });
+    // Immediately sync votes to database for real-time updates
+    try {
+      const { error } = await supabase
+        .from('game_sessions')
+        .update({ 
+          current_sprint_state: {
+            phase: currentPhase,
+            current_tasks: JSON.parse(JSON.stringify(currentTasks)), // Convert to JSON
+            turn_number: turnNumber,
+            player_votes: newVotes
+          } as any,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', gameSessionId);
+
+      if (error) {
+        console.error('Error syncing vote:', error);
+      } else {
+        console.log('Vote synced to database successfully');
+      }
+    } catch (error) {
+      console.error('Error syncing vote:', error);
+    }
     
     // Check if all team members have voted
     if (Object.keys(newVotes).length === teamMembers.length) {
@@ -798,6 +836,12 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
                         {votesReceived === totalVoters && totalVoters > 0 && (
                           <p className="text-sm text-success font-medium text-center">All votes received! Processing results...</p>
                         )}
+                        
+                        {/* Debug info for facilitator */}
+                        <div className="text-xs text-muted-foreground">
+                          <p>Votes: {JSON.stringify(playerVotes)}</p>
+                          <p>Team: {teamMembers.map(p => p.name).join(', ')}</p>
+                        </div>
                       </div>
                       
                       {/* Show current voting options to facilitator */}
