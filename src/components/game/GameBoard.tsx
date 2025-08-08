@@ -238,8 +238,15 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
             }
             if (state.player_votes) {
               console.log('Updating player votes from database:', state.player_votes);
-              console.log('Current local votes:', playerVotes);
               setPlayerVotes(state.player_votes);
+              
+              // Check if voting should complete (only facilitator handles this)
+              if (isHost && currentPhase === 'voting' && 
+                  Object.keys(state.player_votes).length === teamMembers.length &&
+                  Object.keys(state.player_votes).length > 0) {
+                console.log('All votes received, completing voting...');
+                completeVoting(state.player_votes);
+              }
             }
           }
         }
@@ -353,10 +360,7 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
       console.error('Error syncing vote:', error);
     }
     
-    // Check if all team members have voted
-    if (Object.keys(newVotes).length === teamMembers.length) {
-      completeVoting(newVotes);
-    }
+    // Don't check completion here - let facilitator handle it via real-time updates
   };
 
   // Handle voting completion when all votes are in
