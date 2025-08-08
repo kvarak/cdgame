@@ -271,23 +271,29 @@ export const WaitingRoom = ({
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-3">
-                    {canChangeRole(player) ? (
-                      <select
-                        value={player.role}
-                        onChange={(e) => handleRoleChange(player.name, e.target.value as GamePlayer['role'])}
-                        className="px-3 py-1 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-                      >
-                        {AVAILABLE_ROLES.map(role => (
-                          <option key={role} value={role}>{role}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <Badge className={ROLE_COLORS[player.role]}>
-                        {player.role}
-                      </Badge>
-                    )}
-                  </div>
+                   <div className="flex items-center gap-3">
+                     {!player.isHost && player.role ? (
+                       canChangeRole(player) ? (
+                         <select
+                           value={player.role}
+                           onChange={(e) => handleRoleChange(player.name, e.target.value as GamePlayer['role'])}
+                           className="px-3 py-1 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+                         >
+                           {AVAILABLE_ROLES.map(role => (
+                             <option key={role} value={role}>{role}</option>
+                           ))}
+                         </select>
+                       ) : (
+                         <Badge className={ROLE_COLORS[player.role]}>
+                           {player.role}
+                         </Badge>
+                       )
+                     ) : player.isHost ? (
+                       <Badge variant="secondary" className="bg-warning/20 text-warning-foreground">
+                         Host
+                       </Badge>
+                     ) : null}
+                   </div>
                 </div>
               ))}
               

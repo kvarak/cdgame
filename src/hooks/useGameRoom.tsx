@@ -5,7 +5,7 @@ import { useAuditLogger } from './useAuditLogger';
 export interface GamePlayer {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Manager' | 'CEO' | 'Random';
+  role?: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
   isHost: boolean;
   joinedAt: string;
   status: 'joined' | 'left' | 'kicked';
@@ -164,8 +164,8 @@ export const useGameRoom = (gameSessionId?: string) => {
   }, [gameSessionId]); // Remove fetchGameState from dependencies to prevent infinite loop
 
   // Join game as a new player (with role assignment)
-  const joinGame = useCallback(async (gameCode: string, playerName: string, playerRole: GamePlayer['role'] = 'Developer') => {
-    // Handle random role assignment
+  const joinGame = useCallback(async (gameCode: string, playerName: string, playerRole?: GamePlayer['role']) => {
+    // Handle random role assignment for non-host players only
     const finalRole = playerRole === 'Random' 
       ? (['Developer', 'QA Engineer', 'DevOps Engineer', 'Product Owner', 'Security Engineer', 'Site Reliability Engineer'] as const)[Math.floor(Math.random() * 6)]
       : playerRole;

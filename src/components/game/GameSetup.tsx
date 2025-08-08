@@ -19,7 +19,7 @@ import { AuthButton } from "@/components/auth/AuthButton";
 interface Player {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Manager' | 'CEO' | 'Random';
+  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
 }
 
 interface GameSetupProps {
@@ -53,7 +53,6 @@ const ROLE_COLORS = {
 export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: GameSetupProps) => {
   const [gameMode, setGameMode] = useState<'create' | 'join'>('create');
   const [hostName, setHostName] = useState('');
-  const [hostRole, setHostRole] = useState<Player['role']>('Manager');
   const [joinCode, setJoinCode] = useState('');
   const [joinPlayerName, setJoinPlayerName] = useState('');
   const [joinPlayerRole, setJoinPlayerRole] = useState<Player['role']>('Random');
@@ -116,15 +115,14 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
     console.log('=== STARTING GAME CREATION ===');
     console.log('Step 1: User authentication check:', user?.id);
     console.log('Step 2: Host name:', hostName);
-    console.log('Step 3: Host role:', hostRole);
+    console.log('Step 3: Host has no game role');
     
     try {
       console.log('Step 4: Generating game code...');
       const gameCode = await generateGameCode();
       console.log('Step 5: Generated game code:', gameCode);
       
-      const finalHostRole = assignRandomRole(hostRole);
-      console.log('Step 6: Final host role:', finalHostRole);
+      console.log('Step 6: Host has no role (host-only user)');
 
       console.log('Step 7: Creating game session and adding host player...');
       console.log('Step 7.1: Checking Supabase client...', !!supabase);
@@ -185,13 +183,13 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
         gameSession = gameSessionData;
         console.log('Step 7.3: Game session created:', gameSession);
         
-        // Add host player via Supabase client
+        // Add host player via Supabase client (no role for host)
         const { error: playerError } = await supabase
           .from('game_players')
           .insert({
             game_session_id: gameSession.id,
             player_name: hostName,
-            player_role: finalHostRole,
+            player_role: null, // Host has no game role
             player_order: 0,
             is_host: true,
             status: 'joined'
@@ -215,8 +213,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       // Use async logging to prevent blocking
       logGameEvent('create', gameSession.id, {
         gameCode,
-        hostName,
-        hostRole: finalHostRole
+        hostName
       }).catch(auditError => {
         console.warn('Audit logging failed but continuing:', auditError);
       });
@@ -409,22 +406,6 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
                 />
               </div>
 
-              {/* Host Role */}
-              <div className="space-y-2">
-                <Label htmlFor="host-role" className="text-base font-medium">
-                  Your Role
-                </Label>
-                <select
-                  id="host-role"
-                  value={hostRole}
-                  onChange={(e) => setHostRole(e.target.value as Player['role'])}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {AVAILABLE_ROLES.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
-              </div>
 
               {/* Game Info */}
               <div className="bg-muted/50 p-4 rounded-lg">

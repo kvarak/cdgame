@@ -9,7 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface Player {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Manager' | 'CEO' | 'Random';
+  role?: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
 }
 
 const Index = () => {
@@ -82,7 +82,7 @@ const Index = () => {
     }
   }, []);
 
-  const handleStartGame = (gamePlayers: Player[], code: string, sessionId: string) => {
+  const handleStartGame = (gamePlayers: any[], code: string, sessionId: string) => {
     setPlayers(gamePlayers);
     setGameCode(code);
     setGameSessionId(sessionId);

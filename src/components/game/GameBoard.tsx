@@ -25,7 +25,7 @@ import { VotingPopup } from "./VotingPopup";
 interface Player {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Manager' | 'CEO' | 'Random';
+  role?: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
 }
 
 interface GameBoardProps {
