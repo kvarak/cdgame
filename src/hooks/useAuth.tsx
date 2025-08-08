@@ -106,6 +106,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   const signOut = async () => {
+    console.log('🔓 Starting sign out process...');
+    
     // Log sign-out attempt
     try {
       await supabase.rpc('log_audit_event', {
@@ -122,11 +124,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.error('Failed to log sign-out attempt:', logError);
     }
     
+    console.log('🔓 Calling supabase.auth.signOut()...');
     const { error } = await supabase.auth.signOut();
+    
     if (error) {
-      console.error('Error signing out:', error);
+      console.error('❌ Error signing out:', error);
       throw error;
     }
+    
+    console.log('✅ Sign out successful');
+    
+    // Force page reload to clear all state
+    window.location.href = '/';
   };
 
   return (
