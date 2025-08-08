@@ -227,6 +227,12 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
             if (state.current_tasks) {
               setCurrentTasks(state.current_tasks);
             }
+            if (state.selected_tasks) {
+              setSelectedTasks(state.selected_tasks);
+            }
+            if (state.unselected_tasks) {
+              setUnselectedTasks(state.unselected_tasks);
+            }
             if (state.turn_number) {
               setTurnNumber(state.turn_number);
             }
@@ -377,7 +383,8 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, onLeave
     await syncGameState({
       phase: 'execution',
       selected_tasks: selected,
-      unselected_tasks: unselected
+      unselected_tasks: unselected,
+      current_tasks: currentTasks
     });
   };
 
