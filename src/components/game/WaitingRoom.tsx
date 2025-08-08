@@ -248,15 +248,15 @@ export const WaitingRoom = ({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5 text-primary" />
-              Team Members ({players.length})
+              Team Members ({players.filter(p => !p.isHost).length})
             </CardTitle>
             <CardDescription>
-              Players can change their own roles. {isHost ? 'As host, you can change anyone\'s role.' : ''}
+              Players can change their own roles. {isHost ? 'As host, you can change anyone\'s role.' : ''} The facilitator is not part of the team.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">
-              {players.map((player, index) => (
+              {players.filter(player => !player.isHost).map((player, index) => (
                 <div key={player.id} className="flex items-center justify-between p-4 border rounded-lg bg-card/50">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
@@ -297,7 +297,7 @@ export const WaitingRoom = ({
                 </div>
               ))}
               
-              {players.length === 0 && (
+              {players.filter(p => !p.isHost).length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
                   <UserPlus className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>Waiting for players to join...</p>

@@ -17,6 +17,7 @@ import {
   Zap,
   Star,
   CalendarDays,
+  Users,
 } from "lucide-react";
 import { VotingPopup } from "./VotingPopup";
 
@@ -143,23 +144,24 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
   const startVoting = () => {
     setCurrentPhase('voting');
     
-    // Generate 5 random tasks (including pending ones)
+    // Start with 3 random tasks for turn 1, increase for later turns
+    const tasksToShow = Math.min(3 + (turnNumber - 1), 5);
     const allAvailableTasks = [...pendingTasks, ...availableChallenges.filter(c => !pendingTasks.some(p => p.id === c.id))];
     const randomTasks = allAvailableTasks
       .sort(() => Math.random() - 0.5)
-      .slice(0, 5);
+      .slice(0, tasksToShow);
     
     setCurrentTasks(randomTasks);
     setShowVotingPopup(true);
   };
 
   // Handle voting completion
-  const completeVoting = (selectedTaskIds: string[]) => {
+  const completeVoting = (selectedTaskId: string) => {
     setShowVotingPopup(false);
     
-    // Update selected tasks based on voting results
-    const selected = currentTasks.filter(task => selectedTaskIds.includes(task.id));
-    const unselected = currentTasks.filter(task => !selectedTaskIds.includes(task.id));
+    // For now, just select the most voted task
+    const selected = currentTasks.filter(task => task.id === selectedTaskId);
+    const unselected = currentTasks.filter(task => task.id !== selectedTaskId);
     
     setSelectedTasks(selected);
     setUnselectedTasks(unselected);
@@ -424,9 +426,11 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
               </Badge>
             </div>
           </div>
-          <Button variant="outline" onClick={handleEndGame}>
-            End Game
-          </Button>
+          {isHost && (
+            <Button variant="outline" onClick={handleEndGame}>
+              End Game
+            </Button>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -659,33 +663,34 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
             </Card>
           )}
 
-          {/* Team Panel */}
-          <Card className="bg-gradient-card shadow-card">
+          {/* Team Roster */}
+          <Card>
             <CardHeader>
-              <CardTitle>Team Members</CardTitle>
-              <CardDescription>
-                Your DevOps team working together
-              </CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                Team Roster
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {players.map((player) => (
-                  <div
-                    key={player.id}
-                    className="p-3 rounded-lg border border-border/50"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold">{player.name}</h4>
-                        {player.role ? (
-                          <p className="text-sm text-muted-foreground">{player.role}</p>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs">Host</Badge>
-                        )}
-                      </div>
+              <div className="grid gap-2">
+                {players.filter(player => player.role).map((player, index) => (
+                  <div key={player.id} className="flex items-center justify-between p-3 bg-card/50 rounded-lg border">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-medium text-muted-foreground">#{index + 1}</span>
+                      <span className="font-medium">{player.name}</span>
                     </div>
+                    {player.role && (
+                      <Badge variant="secondary">
+                        {player.role}
+                      </Badge>
+                    )}
                   </div>
                 ))}
+                {players.filter(player => player.role).length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No team members active
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -695,19 +700,8 @@ export const GameBoard = ({ players, gameCode, gameSessionId, onEndGame, isHost 
           isOpen={showVotingPopup}
           onClose={() => setShowVotingPopup(false)}
           challenges={currentTasks}
-          onVoteSubmit={(most, least) => {
-            // Simple vote handling - select top 3 most voted
-            const voteCounts = new Map<string, number>();
-            currentTasks.forEach(task => {
-              voteCounts.set(task.id, Math.floor(Math.random() * 10) + 1);
-            });
-            
-            const sortedTasks = currentTasks.sort((a, b) => 
-              (voteCounts.get(b.id) || 0) - (voteCounts.get(a.id) || 0)
-            );
-            
-            const selectedIds = sortedTasks.slice(0, 3).map(task => task.id);
-            completeVoting(selectedIds);
+          onVoteSubmit={(mostImportant) => {
+            completeVoting(mostImportant);
           }}
         />
       </div>

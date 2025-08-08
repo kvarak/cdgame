@@ -16,7 +16,7 @@ interface Challenge {
 interface VotingPopupProps {
   isOpen: boolean;
   challenges: Challenge[];
-  onVoteSubmit: (mostImportant: string, leastImportant: string) => void;
+  onVoteSubmit: (mostImportant: string) => void;
   onClose: () => void;
 }
 
@@ -32,15 +32,15 @@ export const VotingPopup = ({ isOpen, challenges, onVoteSubmit, onClose }: Votin
   const [leastImportant, setLeastImportant] = useState<string>("");
 
   const handleSubmit = () => {
-    if (mostImportant && leastImportant && mostImportant !== leastImportant) {
-      onVoteSubmit(mostImportant, leastImportant);
+    if (mostImportant) {
+      onVoteSubmit(mostImportant);
       setMostImportant("");
       setLeastImportant("");
       onClose();
     }
   };
 
-  const canSubmit = mostImportant && leastImportant && mostImportant !== leastImportant;
+  const canSubmit = mostImportant;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -48,11 +48,10 @@ export const VotingPopup = ({ isOpen, challenges, onVoteSubmit, onClose }: Votin
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Crown className="w-6 h-6 text-warning" />
-            Secret Vote - Sprint Priority
+            Team Vote - Sprint Priority
           </DialogTitle>
           <DialogDescription>
-            Choose which challenge is most important and which is least important for this sprint.
-            Your vote will influence the game outcome.
+            Which challenge is the most important to tackle this sprint? Select the one you believe should be prioritized.
           </DialogDescription>
         </DialogHeader>
         
@@ -60,12 +59,12 @@ export const VotingPopup = ({ isOpen, challenges, onVoteSubmit, onClose }: Votin
           <div>
             <h3 className="font-semibold mb-3 flex items-center gap-2">
               <span className="text-success">👑</span>
-              Most Important Challenge
+              Which Challenge is Most Important?
             </h3>
             <div className="space-y-2">
               {challenges.map((challenge) => (
                 <Card 
-                  key={`most-${challenge.id}`}
+                  key={challenge.id}
                   className={`cursor-pointer border transition-all ${
                     mostImportant === challenge.id 
                       ? 'ring-2 ring-success bg-success/10' 
@@ -96,51 +95,10 @@ export const VotingPopup = ({ isOpen, challenges, onVoteSubmit, onClose }: Votin
             </div>
           </div>
 
-          <div>
-            <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <span className="text-muted-foreground">⬇️</span>
-              Least Important Challenge
-            </h3>
-            <div className="space-y-2">
-              {challenges.map((challenge) => (
-                <Card 
-                  key={`least-${challenge.id}`}
-                  className={`cursor-pointer border transition-all ${
-                    leastImportant === challenge.id 
-                      ? 'ring-2 ring-muted bg-muted/20' 
-                      : 'hover:bg-muted/50'
-                  } ${
-                    mostImportant === challenge.id ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                  onClick={() => mostImportant !== challenge.id && setLeastImportant(challenge.id)}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium">{challenge.title}</h4>
-                          <Badge className={CHALLENGE_COLORS[challenge.type]}>
-                            {challenge.type}
-                          </Badge>
-                          <Badge variant="outline">
-                            Difficulty: {challenge.difficulty}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {challenge.description}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <AlertTriangle className="w-4 h-4" />
-              Your votes are secret and will influence the game
+              Select the most important challenge to prioritize
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={onClose}>
