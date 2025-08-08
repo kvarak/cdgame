@@ -157,6 +157,7 @@ export type Database = {
         Row: {
           allow_spectators: boolean | null
           created_at: string
+          current_sprint_state: Json | null
           current_turn: number
           game_code: string
           host_name: string
@@ -171,6 +172,7 @@ export type Database = {
         Insert: {
           allow_spectators?: boolean | null
           created_at?: string
+          current_sprint_state?: Json | null
           current_turn?: number
           game_code: string
           host_name: string
@@ -185,6 +187,7 @@ export type Database = {
         Update: {
           allow_spectators?: boolean | null
           created_at?: string
+          current_sprint_state?: Json | null
           current_turn?: number
           game_code?: string
           host_name?: string
