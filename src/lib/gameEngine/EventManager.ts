@@ -58,36 +58,44 @@ export class EventManager {
     let businessUpdates = {};
     let devOpsUpdates = {};
 
-    // Parse effect string and apply changes
-    // This is a simplified version - you could expand this based on your event format
-    const effectValue = this.parseEffectValue(event.effect);
-    
-    switch (event.severity) {
-      case 'critical':
+    // Apply event impacts
+    if (event.businessImpact) {
+      Object.entries(event.businessImpact).forEach(([metric, impact]) => {
+        if (typeof impact === 'number') {
+          const currentValue = state.businessMetrics[metric as keyof typeof state.businessMetrics] as number;
+          businessUpdates = {
+            ...businessUpdates,
+            [metric]: Math.max(0, Math.min(100, currentValue + impact))
+          };
+        }
+      });
+    }
+
+    if (event.devOpsImpact) {
+      Object.entries(event.devOpsImpact).forEach(([metric, impact]) => {
+        if (typeof impact === 'number') {
+          const currentValue = state.devOpsMetrics[metric as keyof typeof state.devOpsMetrics] as number;
+          devOpsUpdates = {
+            ...devOpsUpdates,
+            [metric]: Math.max(0, Math.min(100, currentValue + impact))
+          };
+        }
+      });
+    }
+
+    // Apply severity-based effects if no specific impacts defined
+    if (!event.businessImpact && !event.devOpsImpact) {
+      const severityImpact = Math.min(event.severity, 30);
+      
+      if (event.effect.includes('reduce')) {
         businessUpdates = {
-          securityScore: Math.max(0, state.businessMetrics.securityScore - 15),
-          reputation: Math.max(0, state.businessMetrics.reputation - 10)
+          businessIncome: Math.max(0, state.businessMetrics.businessIncome - severityImpact)
         };
-        devOpsUpdates = {
-          mttr: Math.max(0, state.devOpsMetrics.mttr - 10)
-        };
-        break;
-      case 'high':
+      } else if (event.effect.includes('increase')) {
         businessUpdates = {
-          performanceScore: Math.max(0, state.businessMetrics.performanceScore - 10)
+          businessIncome: Math.min(100, state.businessMetrics.businessIncome + severityImpact)
         };
-        break;
-      case 'medium':
-        businessUpdates = {
-          businessIncome: Math.max(0, state.businessMetrics.businessIncome - 5)
-        };
-        break;
-      case 'low':
-        // Minor positive effect
-        businessUpdates = {
-          reputation: Math.min(100, state.businessMetrics.reputation + 2)
-        };
-        break;
+      }
     }
 
     this.gameEngine.updateMetrics(businessUpdates, devOpsUpdates);

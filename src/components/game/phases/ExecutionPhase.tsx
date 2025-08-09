@@ -33,12 +33,12 @@ export const ExecutionPhase = ({ gameState, onCompleteTask, onEndTurn }: Executi
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {allWorkingTasks.length === 0 ? (
+          {selectedTasks.length === 0 && inProgressTasks.length === 0 ? (
             <div className="text-center py-6">
               <div className="p-4 bg-warning/10 border border-warning/20 rounded mb-4">
-                <p className="text-warning font-medium">No tasks were voted on!</p>
+                <p className="text-warning font-medium">No tasks completed this turn!</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Team didn't vote on any tasks this turn.
+                  All voted tasks need more progress or no tasks were voted on.
                 </p>
               </div>
               <Button onClick={onEndTurn} variant="outline">

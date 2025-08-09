@@ -31,8 +31,9 @@ Each player chooses a role with unique strengths that make them more effective a
 - **Role**: The bridge between development and operations, keeping the deployment pipeline smooth.
 
 ### **Product Owner** 📋
-- **Strengths**: Requirements, Prioritization, Stakeholder Management
+- **Strengths**: Features, Compliance
 - **Role**: The voice of the customer who ensures the team builds the right thing at the right time.
+- **Special Power**: **Reprioritize** - Remove any task from the board (once per game)
 
 ### **Security Engineer** 🔒
 - **Strengths**: Security, Compliance, Vulnerability Assessment

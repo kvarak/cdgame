@@ -14,6 +14,19 @@ interface GameHistoryEntry {
   pipeline_stage_reached: number;
   game_duration_minutes: number | null;
   completed_at: string;
+  final_business_metrics?: {
+    businessIncome: number;
+    securityScore: number;
+    performanceScore: number;
+    reputation: number;
+    technicalDebt: number;
+  };
+  final_devops_metrics?: {
+    deploymentFrequency: number;
+    leadTime: number;
+    mttr: number;
+    changeFailureRate: number;
+  };
 }
 
 interface GameHistoryProps {

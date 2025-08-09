@@ -6,21 +6,27 @@ export interface Challenge {
   id: string;
   title: string;
   description: string;
-  type: 'deployment' | 'security' | 'performance' | 'monitoring' | 'testing';
+  type: 'bug' | 'feature' | 'performance' | 'security' | 'infrastructure' | 'monitoring' | 'quality' | 'compliance';
   difficulty: number;
-  progress?: number; // Track completion progress (0-100)
+  progress?: number; // Track completion progress
+  progressNeeded?: number; // Calculated based on players + difficulty + tech debt
   consequences?: string[];
   businessImpact?: {
-    income?: number;
-    security?: number;
-    performance?: number;
+    businessIncome?: number;
+    securityScore?: number;
+    performanceScore?: number;
     reputation?: number;
+    technicalDebt?: number;
   };
   devOpsImpact?: {
     deploymentFrequency?: number;
     leadTime?: number;
     mttr?: number;
     changeFailureRate?: number;
+  };
+  metricImpacts?: {
+    business?: 'minor' | 'some' | 'major';
+    devops?: 'minor' | 'some' | 'major';
   };
 }
 
@@ -29,14 +35,32 @@ export interface GameEvent {
   name: string;
   description: string;
   effect: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: number;
   duration?: number;
+  businessImpact?: {
+    businessIncome?: number;
+    securityScore?: number;
+    performanceScore?: number;
+    reputation?: number;
+    technicalDebt?: number;
+  };
+  devOpsImpact?: {
+    deploymentFrequency?: number;
+    leadTime?: number;
+    mttr?: number;
+    changeFailureRate?: number;
+  };
+  metricImpacts?: {
+    business?: 'minor' | 'some' | 'major';
+    devops?: 'minor' | 'some' | 'major';
+  };
 }
 
 export interface Player {
   id: string;
   name: string;
   role?: string;
+  powerUsed?: boolean;
 }
 
 export interface BusinessMetrics {
@@ -44,6 +68,7 @@ export interface BusinessMetrics {
   securityScore: number;
   performanceScore: number;
   reputation: number;
+  technicalDebt: number;
 }
 
 export interface DevOpsMetrics {
@@ -67,6 +92,7 @@ export interface GameState {
   pendingTasks: Challenge[];
   inProgressTasks: Challenge[]; // Tasks being worked on
   playerVotes: Record<string, string>;
+  activeConsequences: Challenge[]; // Tasks that incur consequences each turn
   
   // Events
   currentEvent: GameEvent | null;
@@ -74,6 +100,11 @@ export interface GameState {
   // Metrics
   businessMetrics: BusinessMetrics;
   devOpsMetrics: DevOpsMetrics;
+  metricsHistory: Array<{
+    turn: number;
+    business: BusinessMetrics;
+    devops: DevOpsMetrics;
+  }>;
   
   // Players
   players: Player[];
@@ -104,7 +135,8 @@ export class GameStateEngine {
         businessIncome: 50,
         securityScore: 50,
         performanceScore: 50,
-        reputation: 50
+        reputation: 50,
+        technicalDebt: 0
       },
       devOpsMetrics: {
         deploymentFrequency: 50,
@@ -115,6 +147,8 @@ export class GameStateEngine {
       players: [],
       currentPlayerName: '',
       isHost: false,
+      activeConsequences: [],
+      metricsHistory: [],
       ...initialState
     };
   }
@@ -170,8 +204,11 @@ export class GameStateEngine {
   async initializeRealtime(): Promise<void> {
     if (!this.state.gameSessionId) return;
 
+    // Add heartbeat to keep connection alive
     this.realtimeChannel = supabase
-      .channel(`game-session-${this.state.gameSessionId}`)
+      .channel(`game-session-${this.state.gameSessionId}`, {
+        config: { presence: { key: this.state.currentPlayerName } }
+      })
       .on(
         'postgres_changes',
         {

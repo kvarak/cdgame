@@ -44,7 +44,36 @@ export class TaskManager {
       .sort(() => Math.random() - 0.5)
       .slice(0, Math.max(0, newTasksNeeded));
 
-    return [...incompleteTasks, ...newRandomTasks];
+    // Add "Reduce Technical Debt" option
+    const reduceTechDebtTask: Challenge = {
+      id: 'reduce_tech_debt',
+      title: 'Reduce Technical Debt',
+      description: 'Focus on reducing technical debt by refactoring code and improving architecture.',
+      type: 'quality',
+      difficulty: 1,
+      progress: 0,
+      metricImpacts: { business: 'minor' }
+    };
+
+    const allTasks = [...incompleteTasks, ...newRandomTasks, reduceTechDebtTask];
+    
+    // Calculate progress needed for each task based on players, difficulty, and tech debt
+    return allTasks.map(task => this.calculateProgressNeeded(task));
+  }
+
+  private calculateProgressNeeded(task: Challenge): Challenge {
+    const state = this.gameEngine.getState();
+    const players = state.players.filter(p => p.role).length;
+    const difficulty = task.difficulty || 1;
+    const techDebt = Math.min(1, state.businessMetrics.technicalDebt / 100); // Convert to 0-1 scale
+    
+    // Formula: Progress needed = X + DTX (where X = players, D = difficulty, T = tech debt)
+    const progressNeeded = Math.ceil(players + (difficulty * techDebt * players));
+    
+    return {
+      ...task,
+      progressNeeded
+    };
   }
 
   async submitVote(playerName: string, taskId: string): Promise<void> {
@@ -67,7 +96,6 @@ export class TaskManager {
   processVotingResults(votes: Record<string, string>): { selected: Challenge[], unselected: Challenge[] } {
     const state = this.gameEngine.getState();
     const players = state.players.filter(p => p.role); // Only count players with roles
-    const totalPlayers = players.length;
     
     // Count votes for each task and calculate progress
     const voteCount: Record<string, number> = {};
@@ -95,22 +123,50 @@ export class TaskManager {
         }
       });
       
-      const progressGain = (effectiveVotes / totalPlayers) * 100;
+      // Handle "Reduce Technical Debt" task
+      if (task.id === 'reduce_tech_debt' && votes > 0) {
+        this.reduceTechnicalDebt(effectiveVotes);
+        return { ...task, progress: 100 }; // Always complete tech debt reduction
+      }
+      
+      const progressGain = effectiveVotes;
       const currentProgress = task.progress || 0;
-      const newProgress = Math.min(100, currentProgress + progressGain);
+      const newProgress = currentProgress + progressGain;
+      const progressNeeded = task.progressNeeded || players.length;
       
       return { ...task, progress: newProgress };
     });
 
     // Split into completed and in-progress tasks
-    const completedTasks = updatedTasks.filter(task => (task.progress || 0) >= 100);
-    const inProgressTasks = updatedTasks.filter(task => (task.progress || 0) < 100 && (voteCount[task.id] || 0) > 0);
-    const untouchedTasks = updatedTasks.filter(task => !(voteCount[task.id] || 0));
+    const completedTasks = updatedTasks.filter(task => 
+      (task.progress || 0) >= (task.progressNeeded || players.length)
+    );
+    const inProgressTasks = updatedTasks.filter(task => 
+      (task.progress || 0) < (task.progressNeeded || players.length) && 
+      (voteCount[task.id] || 0) > 0 && 
+      task.id !== 'reduce_tech_debt'
+    );
+    const untouchedTasks = updatedTasks.filter(task => 
+      !(voteCount[task.id] || 0) && task.id !== 'reduce_tech_debt'
+    );
 
     return {
       selected: completedTasks,
       unselected: [...inProgressTasks, ...untouchedTasks]
     };
+  }
+
+  private reduceTechnicalDebt(votes: number): void {
+    const state = this.gameEngine.getState();
+    const reduction = Math.min(votes * 2, 10); // Each vote reduces tech debt by 2, max 10
+    const newTechDebt = Math.max(0, state.businessMetrics.technicalDebt - reduction);
+    
+    this.gameEngine.updateMetrics({ technicalDebt: newTechDebt });
+    
+    toast({
+      title: "Technical Debt Reduced",
+      description: `Technical debt reduced by ${reduction} points!`,
+    });
   }
 
   applyTaskConsequences(unselectedTasks: Challenge[]): void {
@@ -211,13 +267,81 @@ export class TaskManager {
     if (!playerRole) return false;
 
     const roleRecommendations: Record<string, string[]> = {
-      'Developer': ['deployment', 'performance'],
-      'DevOps Engineer': ['deployment', 'monitoring'],
+      'Developer': ['bug', 'feature', 'performance'],
+      'DevOps Engineer': ['infrastructure', 'monitoring'],
       'Site Reliability Engineer': ['monitoring', 'performance'],
       'Security Engineer': ['security'],
-      'QA Engineer': ['testing']
+      'QA Engineer': ['quality', 'bug'],
+      'Product Owner': ['feature', 'compliance']
     };
 
     return roleRecommendations[playerRole]?.includes(task.type) || false;
+  }
+
+  // New method to handle end-of-turn consequences
+  applyEndOfTurnEffects(): void {
+    const state = this.gameEngine.getState();
+    
+    // Increase technical debt slightly each turn
+    const techDebtIncrease = Math.min(2 + (state.turnNumber * 0.5), 5);
+    let businessUpdates = {
+      technicalDebt: Math.min(100, state.businessMetrics.technicalDebt + techDebtIncrease)
+    };
+
+    // Apply consequences for incomplete tasks
+    const incompleteConsequences = [...state.inProgressTasks, ...state.activeConsequences];
+    
+    incompleteConsequences.forEach(task => {
+      const impact = this.getTaskConsequenceImpact(task);
+      Object.entries(impact).forEach(([metric, value]) => {
+        if (typeof value === 'number') {
+          const currentValue = state.businessMetrics[metric as keyof typeof state.businessMetrics] as number;
+          businessUpdates = {
+            ...businessUpdates,
+            [metric]: Math.max(0, Math.min(100, currentValue + value))
+          };
+        }
+      });
+    });
+
+    this.gameEngine.updateMetrics(businessUpdates);
+    
+    // Update active consequences (remove descoped features)
+    const updatedConsequences = incompleteConsequences.filter(task => {
+      if (task.type === 'feature' && Math.random() < 0.25) {
+        toast({
+          title: "Feature Descoped",
+          description: `${task.title} has been removed from the backlog due to delays.`,
+          variant: "destructive"
+        });
+        return false;
+      }
+      return true;
+    });
+
+    this.gameEngine.updateState({ activeConsequences: updatedConsequences });
+  }
+
+  private getTaskConsequenceImpact(task: Challenge): Record<string, number> {
+    switch (task.type) {
+      case 'bug':
+        return { [this.getRandomBusinessMetric()]: -2 };
+      case 'feature':
+        return {}; // Features don't reduce metrics, they get descoped
+      case 'performance':
+        return { performanceScore: -3 };
+      case 'security':
+        if (Math.random() < 0.1) { // 10% chance of exploitation
+          return { securityScore: -15, reputation: -10 };
+        }
+        return {};
+      default:
+        return {};
+    }
+  }
+
+  private getRandomBusinessMetric(): string {
+    const metrics = ['businessIncome', 'reputation', 'performanceScore'];
+    return metrics[Math.floor(Math.random() * metrics.length)];
   }
 }
