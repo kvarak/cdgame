@@ -7,15 +7,8 @@ import { useGameRoom } from "@/hooks/useGameRoom";
 import { VotingPopup } from "./VotingPopup";
 import { supabase } from "@/integrations/supabase/client";
 
-interface Challenge {
-  id: string;
-  title: string;
-  description: string;
-  type: 'bug' | 'security' | 'performance' | 'feature';
-  difficulty: 1 | 2 | 3;
-  required_strengths?: string[];
-  preferred_strengths?: string[];
-}
+// Import Challenge type from GameStateEngine
+import { Challenge } from '@/lib/gameEngine/GameStateEngine';
 
 interface SpectatorViewProps {
   gameSessionId: string;

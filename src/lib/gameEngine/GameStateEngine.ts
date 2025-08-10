@@ -10,6 +10,8 @@ export interface Challenge {
   difficulty: number;
   progress?: number; // Track completion progress
   progressNeeded?: number; // Calculated based on players + difficulty + tech debt
+  required_strengths?: string[]; // Strengths that are required for this task
+  preferred_strengths?: string[]; // Strengths that provide bonus progress
   consequences?: string[];
   businessImpact?: {
     businessIncome?: number;
@@ -131,6 +133,7 @@ export class GameStateEngine {
       inProgressTasks: [],
       playerVotes: {},
       currentEvent: null,
+      metricsHistory: [],
       businessMetrics: {
         businessIncome: 50,
         securityScore: 50,
@@ -148,7 +151,6 @@ export class GameStateEngine {
       currentPlayerName: '',
       isHost: false,
       activeConsequences: [],
-      metricsHistory: [],
       ...initialState
     };
   }

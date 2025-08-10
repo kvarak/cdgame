@@ -2,11 +2,11 @@
 
 ## Setting & Background
 
-Welcome to **TechFlow Dynamics**, a cutting-edge software company that's just landed a massive contract to build the next generation of cloud infrastructure for Fortune 500 companies. Your team has 90 days to deliver a revolutionary platform that promises to change how businesses manage their digital operations.
+Welcome to **TechFlow Dynamics**, a cutting-edge software company that's on a critical 90-day probation period. After a series of missteps and missed deadlines, the board has made it clear: prove your team can deliver, or face being replaced by external consultants.
 
-But here's the catch: Murphy's Law is in full effect. Everything that can go wrong, will go wrong. From critical production bugs to surprise security audits, from viral feature launches that crash your servers to cloud provider outages that happen at the worst possible moment.
+Your mission is to navigate through the chaos of modern software development while proving your worth. From critical production bugs to surprise security audits, from viral feature launches that crash your servers to cloud provider outages that happen at the worst possible moment - every decision matters.
 
-Your mission? Navigate through the chaos, make strategic decisions under pressure, and somehow deliver a product that doesn't just work—but excels. Every decision matters. Every role counts. One wrong move and your startup dreams could turn into a corporate nightmare.
+This is your chance to prove that your team has what it takes. Navigate the challenges, make strategic decisions under pressure, and show the company that you're not just survivors, but the reliable professionals they need. Every role counts. Every turn matters. One wrong move and your career could be on the line.
 
 ## Game Overview
 
@@ -16,32 +16,14 @@ The game simulates the real pressures of modern software development: tight dead
 
 ## Player Roles & Specialties
 
-Each player chooses a role with unique strengths that make them more effective at certain types of challenges:
+Each player chooses a role with unique strengths and special powers. The available roles are defined in the game's configuration and may include various engineering disciplines like Development, Quality Assurance, DevOps, Product Ownership, Security Engineering, and Site Reliability Engineering.
 
-### **Developer** 🧑‍💻
-- **Strengths**: Architecture, Performance, Integration
-- **Role**: The code architect who builds the foundation and ensures systems work together seamlessly.
+Each role has:
+- **Specific strengths** that make them more effective at certain types of tasks
+- **Unique special powers** that can be used once per game to dramatically impact the situation
+- **Clear responsibilities** that help guide decision-making during the game
 
-### **QA Engineer** 🔍
-- **Strengths**: Testing, Automation, Validation  
-- **Role**: The quality guardian who catches bugs before they reach production and ensures reliability.
-
-### **DevOps Engineer** ⚙️
-- **Strengths**: Deployment, Monitoring, Infrastructure
-- **Role**: The bridge between development and operations, keeping the deployment pipeline smooth.
-
-### **Product Owner** 📋
-- **Strengths**: Features, Compliance
-- **Role**: The voice of the customer who ensures the team builds the right thing at the right time.
-- **Special Power**: **Reprioritize** - Remove any task from the board (once per game)
-
-### **Security Engineer** 🔒
-- **Strengths**: Security, Compliance, Vulnerability Assessment
-- **Role**: The cyber guardian who protects against threats and ensures regulatory compliance.
-
-### **Site Reliability Engineer** 🛡️
-- **Strengths**: Reliability, Scalability, Incident Response
-- **Role**: The stability expert who keeps systems running when everything tries to break.
+Players should familiarize themselves with their role's capabilities and understand how they can best contribute to the team's success.
 
 
 ## Game Structure
@@ -57,16 +39,17 @@ Each turn represents **one week** in your development cycle and consists of thre
 Your team's success is measured across two critical dimensions:
 
 **📈 Business Metrics** (0-100)
-- **Revenue**: Direct income from your product
-- **Customer Satisfaction**: How happy your users are
-- **Market Share**: Your competitive position
-- **Brand Reputation**: Public perception of your company
+- **Business Income**: Direct revenue and profitability
+- **Security Score**: Protection against threats and compliance
+- **Performance Score**: System speed and responsiveness  
+- **Reputation**: Public and customer perception
+- **Technical Debt** (0-100): Accumulated shortcuts and maintenance needs
 
 **⚙️ DevOps Metrics** (0-100)  
-- **System Reliability**: Uptime and stability
-- **Security Posture**: Protection against threats
-- **Performance**: Speed and responsiveness
-- **Team Velocity**: How fast you can deliver features
+- **Deployment Frequency**: How often you can deploy
+- **Lead Time**: Time from code to production
+- **MTTR**: Mean time to recovery from incidents
+- **Change Failure Rate**: Success rate of deployments
 
 ## Phase Breakdown
 
@@ -118,13 +101,17 @@ Your team works on ALL voted tasks simultaneously. Each vote contributes progres
 **Execution Mechanics**:
 1. **Progress Calculation**: Each vote = 1/x progress (where x = number of players)
 2. **Role Effectiveness**: Players voting for tasks matching their strengths count as double progress
-3. **Task Completion**: Tasks reaching 100% progress are completed and provide benefits
-4. **Incomplete Tasks**: Tasks not completed remain in the voting pool for next turn
+3. **Technical Debt Impact**: Higher technical debt increases the progress needed to complete tasks
+4. **Task Completion**: Tasks reaching 100% progress are completed and provide benefits
+5. **Incomplete Tasks**: Tasks not completed remain in the voting pool for next turn
+6. **Special Powers**: Players can use their role's special power once per game to dramatically impact the situation
+7. **Reducing Technical Debt**: Players can vote to work on reducing technical debt instead of specific tasks
 
 **Progress Examples**:
 - 4 players, 1 task gets 3 votes: 3/4 = 75% progress (carries over)
 - 4 players, 2 votes from roles with matching strengths: 4/4 = 100% (completed!)
 - Multiple tasks can be worked on simultaneously based on vote distribution
+- **Technical Debt Impact**: Higher technical debt increases the progress needed to complete tasks
 
 ## Winning Conditions
 
@@ -198,15 +185,15 @@ Accumulate points for creative solutions. Spend them to:
 
 ### The TechFlow Dynamics Story
 
-Founded in a cramped San Francisco garage by three Stanford dropouts with a revolutionary idea, TechFlow Dynamics has grown from a weekend hackathon project to a Series B startup with $50M in funding and the weight of impossibly high expectations.
+Founded in a cramped San Francisco garage by three Stanford dropouts with a revolutionary idea, TechFlow Dynamics has grown from a weekend hackathon project to a Series B startup with $50M in funding. But recent setbacks have put the entire team under scrutiny.
 
-Your product, **CloudSync Pro**, promises to revolutionize how enterprises manage their cloud infrastructure. The demo videos are slick, the investors are excited, and the launch deadline is non-negotiable.
+After missing several critical deadlines and experiencing high-profile outages, the board has issued an ultimatum: **prove your team can deliver within 90 days, or face replacement by external consultants.**
 
-But behind the glossy marketing materials and confident press releases lies the reality every software team knows: building great software is part engineering, part art, and part pure survival instinct.
+Your product, **CloudSync Pro**, promises to revolutionize how enterprises manage their cloud infrastructure. The technology is sound, but execution has been rocky. Every decision now carries weight. Every mistake could be your last.
 
-Welcome to the beautiful chaos of modern software development. Your stakeholders are watching. Your competitors are gaining ground. Your servers are making weird noises.
+This is your chance to prove that internal teams can outperform expensive consultants. Show the board that you understand the product, the technology, and the company better than anyone else could.
 
-Time to find out what your team is really made of.
+Time to find out what your team is really made of. The clock is ticking. The board is watching. Your future depends on the next 90 days.
 
 ---
 

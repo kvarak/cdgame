@@ -1,11 +1,11 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Minus, Users, Play, GamepadIcon } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import heroImage from "@/assets/devops-hero.jpg";
 import { validatePlayerName, validateGameCode } from "@/lib/validation";
@@ -19,7 +19,13 @@ import { AuthButton } from "@/components/auth/AuthButton";
 interface Player {
   id: string;
   name: string;
-  role: 'Developer' | 'QA Engineer' | 'DevOps Engineer' | 'Product Owner' | 'Security Engineer' | 'Site Reliability Engineer' | 'Random';
+  role: string;
+}
+
+interface Role {
+  id: string;
+  name: string;
+  strengths: string[];
 }
 
 interface GameSetupProps {
@@ -28,15 +34,7 @@ interface GameSetupProps {
   onViewHistory?: () => void;
 }
 
-const AVAILABLE_ROLES = [
-  'Random',
-  'Developer',
-  'QA Engineer', 
-  'DevOps Engineer',
-  'Product Owner',
-  'Security Engineer',
-  'Site Reliability Engineer'
-] as const;
+// Will be loaded from roles.ndjson
 
 
 const ROLE_COLORS = {
@@ -54,17 +52,38 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
   const [hostName, setHostName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [joinPlayerName, setJoinPlayerName] = useState('');
-  const [joinPlayerRole] = useState<Player['role']>('Developer'); // Default role for join
+  const [joinPlayerRole, setJoinPlayerRole] = useState<string>('Developer'); // Default role for join
   const [isLoading, setIsLoading] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
   const { toast } = useToast();
   const { logGameEvent } = useAuditLogger();
   const { joinGame } = useGameRoom();
   const { user } = useAuth();
 
-  const assignRandomRole = (role: Player['role']): Player['role'] => {
+  // Load roles from ndjson file
+  useEffect(() => {
+    const loadRoles = async () => {
+      try {
+        const response = await fetch('/roles.ndjson');
+        const text = await response.text();
+        const roles = text.trim().split('\n').map(line => JSON.parse(line));
+        setAvailableRoles([{ id: 'random', name: 'Random', strengths: [] }, ...roles]);
+      } catch (error) {
+        console.error('Failed to load roles:', error);
+        // Fallback roles
+        setAvailableRoles([
+          { id: 'random', name: 'Random', strengths: [] },
+          { id: 'developer', name: 'Developer', strengths: ['architecture', 'performance', 'integration'] }
+        ]);
+      }
+    };
+    loadRoles();
+  }, []);
+
+  const assignRandomRole = (role: string): string => {
     if (role === 'Random') {
-      const nonRandomRoles = AVAILABLE_ROLES.slice(1); // Exclude 'Random'
-      return nonRandomRoles[Math.floor(Math.random() * nonRandomRoles.length)];
+      const nonRandomRoles = availableRoles.filter(r => r.id !== 'random');
+      return nonRandomRoles[Math.floor(Math.random() * nonRandomRoles.length)]?.name || 'Developer';
     }
     return role;
   };
@@ -300,7 +319,7 @@ export const GameSetup = ({ onStartGame, onEnterWaitingRoom, onViewHistory }: Ga
       const finalJoinRole = assignRandomRole(joinPlayerRole);
       
       // Join the game using the hook
-      const result = await joinGame(codeValidation.sanitized, joinPlayerName, finalJoinRole);
+      const result = await joinGame(codeValidation.sanitized, joinPlayerName, finalJoinRole as "Developer" | "QA Engineer" | "DevOps Engineer" | "Product Owner" | "Security Engineer" | "Site Reliability Engineer" | "Random");
 
       toast({
         title: "Joined Game!",

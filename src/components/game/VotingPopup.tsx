@@ -5,13 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Crown, AlertTriangle } from "lucide-react";
 
-interface Challenge {
-  id: string;
-  title: string;
-  description: string;
-  type: 'bug' | 'security' | 'performance' | 'feature';
-  difficulty: 1 | 2 | 3;
-}
+// Import Challenge type from GameStateEngine
+import { Challenge } from '@/lib/gameEngine/GameStateEngine';
 
 interface VotingPopupProps {
   isOpen: boolean;

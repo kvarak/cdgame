@@ -3,21 +3,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Crown, DollarSign, Zap, AlertTriangle, CalendarDays, Users } from "lucide-react";
+import { Crown, DollarSign, Zap, AlertTriangle, CalendarDays, Users, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { GameStateEngine, GameState } from "@/lib/gameEngine/GameStateEngine";
 import { TaskManager } from "@/lib/gameEngine/TaskManager";
 import { EventManager } from "@/lib/gameEngine/EventManager";
 import { PhaseManager } from "@/lib/gameEngine/PhaseManager";
+import { RolePowerManager } from "@/lib/gameEngine/RolePowerManager";
 import { VotingPhase } from "./phases/VotingPhase";
 import { EventsPhase } from "./phases/EventsPhase";
 import { ExecutionPhase } from "./phases/ExecutionPhase";
+import { ActiveConsequences } from "./ActiveConsequences";
+import { RoleDisplay } from "./RoleDisplay";
 import { supabase } from '@/integrations/supabase/client';
 
 interface Player {
   id: string;
   name: string;
   role?: string;
+  powerUsed?: boolean;
 }
 
 interface GameBoardProps {
@@ -52,15 +56,20 @@ export const GameBoardRefactored = ({
   const [taskManager] = useState(() => new TaskManager(gameEngine));
   const [eventManager] = useState(() => new EventManager(gameEngine));
   const [phaseManager] = useState(() => new PhaseManager(gameEngine, taskManager, eventManager));
+  const [rolePowerManager] = useState(() => new RolePowerManager(gameEngine));
 
   const [gameState, setGameState] = useState<GameState>(gameEngine.getState());
   const [showGameEndDialog, setShowGameEndDialog] = useState(false);
+  const [previousMetrics, setPreviousMetrics] = useState(gameState.businessMetrics);
 
   // Subscribe to game state changes
   useEffect(() => {
-    const unsubscribe = gameEngine.subscribe(setGameState);
+    const unsubscribe = gameEngine.subscribe((newState) => {
+      setPreviousMetrics(gameState.businessMetrics);
+      setGameState(newState);
+    });
     return unsubscribe;
-  }, [gameEngine]);
+  }, [gameEngine, gameState.businessMetrics]);
 
   // Initialize data and real-time
   useEffect(() => {
@@ -126,6 +135,19 @@ export const GameBoardRefactored = ({
   const handleEndTurn = () => {
     if (!isHost) return;
     phaseManager.endTurn();
+  };
+
+  const handleUsePower = (powerType: string) => {
+    if (rolePowerManager.usePower(currentPlayerName, powerType)) {
+      const newState = gameEngine.getState();
+      setGameState(newState);
+    }
+  };
+
+  const getMetricChange = (current: number, previous: number) => {
+    const diff = current - previous;
+    if (Math.abs(diff) < 1) return null;
+    return diff > 0 ? 'up' : 'down';
   };
 
   const handleEndGame = async () => {
@@ -286,27 +308,53 @@ export const GameBoardRefactored = ({
                 <CardContent className="pt-0 space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">Income</span>
-                    <span className="text-sm font-bold text-primary">
-                      {gameState.businessMetrics.businessIncome}%
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-bold text-primary">
+                        {gameState.businessMetrics.businessIncome}%
+                      </span>
+                      {getMetricChange(gameState.businessMetrics.businessIncome, previousMetrics.businessIncome) === 'up' && <ArrowUp className="w-3 h-3 text-green-500" />}
+                      {getMetricChange(gameState.businessMetrics.businessIncome, previousMetrics.businessIncome) === 'down' && <ArrowDown className="w-3 h-3 text-red-500" />}
+                    </div>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">Security</span>
-                    <span className="text-sm font-bold text-primary">
-                      {gameState.businessMetrics.securityScore}%
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-bold text-primary">
+                        {gameState.businessMetrics.securityScore}%
+                      </span>
+                      {getMetricChange(gameState.businessMetrics.securityScore, previousMetrics.securityScore) === 'up' && <ArrowUp className="w-3 h-3 text-green-500" />}
+                      {getMetricChange(gameState.businessMetrics.securityScore, previousMetrics.securityScore) === 'down' && <ArrowDown className="w-3 h-3 text-red-500" />}
+                    </div>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">Performance</span>
-                    <span className="text-sm font-bold text-primary">
-                      {gameState.businessMetrics.performanceScore}%
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-bold text-primary">
+                        {gameState.businessMetrics.performanceScore}%
+                      </span>
+                      {getMetricChange(gameState.businessMetrics.performanceScore, previousMetrics.performanceScore) === 'up' && <ArrowUp className="w-3 h-3 text-green-500" />}
+                      {getMetricChange(gameState.businessMetrics.performanceScore, previousMetrics.performanceScore) === 'down' && <ArrowDown className="w-3 h-3 text-red-500" />}
+                    </div>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">Reputation</span>
-                    <span className="text-sm font-bold text-primary">
-                      {gameState.businessMetrics.reputation}%
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-bold text-primary">
+                        {gameState.businessMetrics.reputation}%
+                      </span>
+                      {getMetricChange(gameState.businessMetrics.reputation, previousMetrics.reputation) === 'up' && <ArrowUp className="w-3 h-3 text-green-500" />}
+                      {getMetricChange(gameState.businessMetrics.reputation, previousMetrics.reputation) === 'down' && <ArrowDown className="w-3 h-3 text-red-500" />}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Tech Debt</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-bold text-warning">
+                        {Math.round(gameState.businessMetrics.technicalDebt)}%
+                      </span>
+                      {getMetricChange(gameState.businessMetrics.technicalDebt, previousMetrics.technicalDebt) === 'up' && <ArrowUp className="w-3 h-3 text-red-500" />}
+                      {getMetricChange(gameState.businessMetrics.technicalDebt, previousMetrics.technicalDebt) === 'down' && <ArrowDown className="w-3 h-3 text-green-500" />}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -346,6 +394,26 @@ export const GameBoardRefactored = ({
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Active Consequences */}
+              <ActiveConsequences activeConsequences={gameState.activeConsequences} />
+
+              {/* Current Player Role Display */}
+              {currentPlayerName && (
+                <div className="space-y-2">
+                  {(() => {
+                    const currentPlayer = players.find(p => p.name === currentPlayerName);
+                    return currentPlayer ? (
+                      <RoleDisplay 
+                        player={currentPlayer} 
+                        rolePowerManager={rolePowerManager}
+                        onUsePower={handleUsePower}
+                        isCurrentPlayer={true}
+                      />
+                    ) : null;
+                  })()}
+                </div>
+              )}
 
               {/* Facilitator Controls */}
               <Card className="bg-gradient-primary/10 border-primary/20">
